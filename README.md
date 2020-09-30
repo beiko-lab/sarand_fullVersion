@@ -1,6 +1,8 @@
 AMR Context Detection
+To extract AMR genes and their neighborhood
 
 ------------------------------------------------------------------
+
 If this file does not answer your questions, please
 feel free to e-mail any questions to Somayeh at:
 
@@ -111,4 +113,5 @@ optional arguments:
   --use_RGI USE_RGI     Whether to contribute RGI annotation in Prokka result
   --RGI_include_loose RGI_INCLUDE_LOOSE
                         Whether to include loose cases in RGI result
+
 
