@@ -20,15 +20,15 @@ from csv import DictReader
 
 def show_images(image_list, main_title, output, cols = 1, title_list = None):
     """
-    Display a list of images in a single figure with matplotlib.
+    Display a list of images in a single figure with matplotlib
     Parameters:
-        image_list: List of np.arrays compatible with plt.imshow.
-        main_title: The main title of the generated figure.
-        output: The address of the generated image to be saved in.
+        image_list: List of np.arrays compatible with plt.imshow
+        main_title: The main title of the generated figure
+        output: The address of the generated image to be saved in
         cols (Default = 1): Number of columns in figure (number of rows is
-                        set to np.ceil(n_images/float(cols))).
+                        set to np.ceil(n_images/float(cols)))
         title_list: List of titles corresponding to each image. Must have
-            the same length as titles.
+            the same length as titles
     """
     assert((title_list is None)or (len(image_list) == len(title_list)))
     n_images = len(image_list)
@@ -36,53 +36,53 @@ def show_images(image_list, main_title, output, cols = 1, title_list = None):
     fig = plt.figure()
     for n, (image, title) in enumerate(zip(image_list, title_list)):
         a = fig.add_subplot(np.ceil(n_images/float(cols)), cols, n + 1)
-        #if image.ndim == 2:
-        #    plt.gray()
         plt.imshow(image)
-        #a.set_title(title, fontsize=22, loc='left')
         ax = plt.gca()
         ax.axes.xaxis.set_ticks([])
-        #ax.axes.xaxis.set_visible(False)
         ax.axes.yaxis.set_ticks([])
         plt.xlabel(title, size = 22)
-        #plt.axis('off')
     fig.suptitle(main_title, size = 38)
     fig.set_size_inches(np.array(fig.get_size_inches()) * n_images)
-    #fig.tight_layout()
-    #fig.subplots_adjust(top=0.88)
-    #plt.show()
     plt.savefig(output)
 
 def extract_annotation_from_csv(input_csv_file):
-    seq_info_list = []
-    seq_length_list =[]
-    seq_info = []
-    title_list = []
-    with open(input_csv_file, 'r') as myfile:
-        #myreader = csv.reader(myfile)
-        myreader = DictReader(myfile)
-        #next(myreader)
-        old_seq = ''
-        for row in myreader:
-            #gene_info = {'name':row[5], 'start_pos':int(row[8]), 'end_pos':int(row[9])}
-            #cur_seq = row[0]
-            gene_info = {'name':row['gene'], 'start_pos':int(row['start_pos']),
+	"""
+	To extract the annotations of sequences from the csv file
+	Parameters:
+	 	input_csv_file: the input csv file containing annotations
+	Return:
+		The list of annotaions of all sequences, their length and their name (title)
+	"""
+	seq_info_list = []
+	seq_length_list =[]
+	seq_info = []
+	title_list = []
+	with open(input_csv_file, 'r') as myfile:
+		myreader = DictReader(myfile)
+		old_seq = ''
+		for row in myreader:
+			gene_info = {'name':row['gene'], 'start_pos':int(row['start_pos']),
                         'end_pos':int(row['end_pos'])}
-            cur_seq = row['seq_name']
-            if cur_seq!=old_seq:
-                if (seq_info):
-                    seq_info_list.append(seq_info)
-                seq_info = []
-                old_seq = cur_seq
-                title_list.append(cur_seq)
-                seq_length_list.append(int(row['seq_length']))
-            seq_info.append(gene_info)
-        seq_info_list.append(seq_info)
-    return seq_info_list, seq_length_list, title_list
+			cur_seq = row['seq_name']
+			if cur_seq!=old_seq:
+				if (seq_info):
+					seq_info_list.append(seq_info)
+				seq_info = []
+				old_seq = cur_seq
+				title_list.append(cur_seq)
+				seq_length_list.append(int(row['seq_length']))
+			seq_info.append(gene_info)
+		seq_info_list.append(seq_info)
+	return seq_info_list, seq_length_list, title_list
 
 def visualize_annotation(input_csv_file, output, title=''):
     """
-
+	The core function to read the csv file containing annotations into image_list
+	object and visualize them in an image
+	Parameetrs:
+		input_csv_file:	the csv file containing the annotation for all extracted sequences
+		output:			the address of the generated image to be saved in
+		title:			the title used in the generated image
     """
     seq_info_list, seq_length_list, title_list = extract_annotation_from_csv(input_csv_file)
     image_list = []

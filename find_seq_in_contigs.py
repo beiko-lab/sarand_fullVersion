@@ -28,6 +28,12 @@ result_file = OUTPUT_DIR+'/sequence_match_list'+datetime.datetime.now().strftime
 
 def write_results(result_file, query, contig_list):
 	"""
+	To write the list of contigs found in the assembly graph (contig_list) for
+	a given sequence (query) in a file (result_file)
+	Parameters:
+	 	result_file: The file to be written in
+		query: the sequence
+		contig_list: the list of contigs
 	"""
 	with open(result_file, mode='a+') as file:
 		common_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -40,6 +46,17 @@ def write_results(result_file, query, contig_list):
 
 def find_sequence_match(query, contig_file, out_dir = OUTPUT_DIR, blast_ext = ''):
 	"""
+	To check if the sequence (query) can be found in the list of contigs
+	# contig_file is considered our database and we run blast over it
+	Parameters:
+		query: the sequence we look for in the contigs
+		contig_file: the file containing contigs
+		out_dir: the output directory to store all created files there
+		blast_ext: an extension used for naming blast file
+	Return:
+		the list of matched contigs and some further information including identity,
+		matched_length, the start and end of matched part of the query, and the start
+		and end of matched part of the contig
 	"""
 	#Create DB from contig file
 	command = 'makeblastdb -in '+contig_file +' -parse_seqids -dbtype nucl'
@@ -59,7 +76,6 @@ def find_sequence_match(query, contig_file, out_dir = OUTPUT_DIR, blast_ext = ''
 	contig = collections.namedtuple('contig', 'name identity matched_length q_start q_end c_start c_end')
 	with open(blast_file_name, 'r') as file1:
 		myfile = csv.reader(file1)
-		#found_full_identity = False
 		for row in myfile:
 			mycontig = contig(name=row[1], identity=row[2], matched_length=row[3], q_start=row[6],
 		 					q_end=row[7], c_start=row[8], c_end=row[9])
@@ -71,10 +87,12 @@ def find_sequence_match(query, contig_file, out_dir = OUTPUT_DIR, blast_ext = ''
 
 def find_sequences(seq_file, contig_file):
 	"""
+	To extract the sequences, find the list of contigs containing each sequence
+	and write the results in a file
+	Parameters:
+		seq_file:	the file containing the sequences we look for in contigs
+		contig_file:the file containing contigs
 	"""
-	##Create DB from contig file
-	#command = 'makeblastdb -in '+contig_file +' -parse_seqids -dbtype nucl'
-	#os.system(command)
 	#create the output directory
 	if not os.path.exists(OUTPUT_DIR):
 		os.makedirs(OUTPUT_DIR)
@@ -89,10 +107,8 @@ def find_sequences(seq_file, contig_file):
 			if line.startswith('>') or line.startswith('Path') or line.startswith('The'):
 				continue
 			else:
-				#import pdb;pdb.set_trace()
 				contig_list = find_sequence_match(line, contig_file)
 				write_results(result_file, line, contig_list)
-                #write_results(result_file, line, find_sequence_exact_match(line.lower(), contig_file))
 
 
 def main(args):
