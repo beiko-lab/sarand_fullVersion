@@ -19,9 +19,9 @@ SPADES_PATH = '/home/somayeh/miniconda3/bin/spades.py'
 #PATH_PREFIX = '/media/Data/PostDoc/Dalhousie/Work/Test1/'
 PATH_PREFIX = '/media/Data/PostDoc/Dalhousie/Work/Test2/'
 
-task = [5, 6]
+task = [6]
 
-output_dir = 'Experiments/test/'
+output_dir = 'Experiments/1_1_1_limit/'
 #output_dir = 'Experiments/Set30_13Sep2020/salmonella7_enterococcus1/'
 
 #amr_file = PATH_PREFIX + 'TRU-1.fasta'
@@ -84,5 +84,6 @@ use_RGI =  True
 RGI_include_loose = False
 
 #neighborhood_seq_files = PATH_PREFIX + output_dir + 'assembly_neighborhood_sequences_5000_2020-09-27_20-55.txt'
-neighborhood_seq_files = PATH_PREFIX + output_dir + 'sequences_info/sequences/'
+ng_seq_files = PATH_PREFIX + output_dir + 'sequences_info/sequences/'
 #neighborhood_seq_files = PATH_PREFIX + output_dir + 'sequences_info/sequences/ng_sequences_TEM-7_1000_2020-11-20_12-19.txt'
+ng_path_info_files = PATH_PREFIX + output_dir + 'sequences_info/paths_info/'

@@ -23,6 +23,7 @@ import argparse
 import difflib
 import datetime
 import csv
+from csv import DictReader
 import collections
 from Bio import SeqIO
 from gfapy.sequence import rc
@@ -207,7 +208,7 @@ def retrieve_AMR(file_path):
 			return line
 
 def write_info_in_annotation_file(annotation_writer, visual_annotation_writer,
-					seq_description, seq, contig_name, seq_info, use_RGI, found):
+					seq_description, seq, contig_name, seq_info, coverage, use_RGI, found):
 	"""
 	To write annotation details into files
 	Parameters:
@@ -225,23 +226,23 @@ def write_info_in_annotation_file(annotation_writer, visual_annotation_writer,
 							contig_name, seq_info['gene'], seq_info['prokka_gene_name'],
 							seq_info['product'], seq_info['length'],
 							seq_info['start_pos'], seq_info['end_pos'],
-							seq_info['RGI_prediction_type']])
+							seq_info['RGI_prediction_type'], coverage])
 		if not found:
 			visual_annotation_writer.writerow([seq_description, seq, len(seq),
 								contig_name, seq_info['gene'], seq_info['prokka_gene_name'],
 								seq_info['product'], seq_info['length'],
 								seq_info['start_pos'], seq_info['end_pos'],
-								seq_info['RGI_prediction_type']])
+								seq_info['RGI_prediction_type'], coverage])
 	else:
 		annotation_writer.writerow([seq_description, seq, len(seq),
 							contig_name, seq_info['gene'],
 							seq_info['product'], seq_info['length'],
-							seq_info['start_pos'], seq_info['end_pos']])
+							seq_info['start_pos'], seq_info['end_pos'], coverage])
 		if not found:
 			visual_annotation_writer.writerow([seq_description, seq, len(seq),
 								contig_name, seq_info['gene'],
 								seq_info['product'], seq_info['length'],
-								seq_info['start_pos'], seq_info['end_pos']])
+								seq_info['start_pos'], seq_info['end_pos'], coverage])
 
 
 def insert_amr_in_location(genome_file, amr_seq, location, output_dir):
@@ -544,10 +545,69 @@ def seq_annotation_already_exist(seq_info_list, all_seq_info_lists):
 
 	return found
 
+def read_path_info_file(path_info_file):
+	"""
+	"""
+	seq_info_list = []
+	seq_info = []
+	with open(path_info_file, 'r') as myfile:
+		myreader = DictReader(myfile)
+		old_seq = ''
+		for row in myreader:
+			node_info = {'node':row['node'], 'coverage':float(row['coverage']),
+			'start':int(row['start']), 'end':int(row['end'])}
+			cur_seq = row['sequence']
+			if cur_seq!=old_seq:
+				if (seq_info):
+					seq_info_list.append(seq_info)
+				seq_info = []
+				old_seq = cur_seq
+			seq_info.append(node_info)
+		seq_info_list.append(seq_info)
+	return seq_info_list
+
+def find_gene_coverage(seq_info_list, path_info):
+	"""
+	"""
+	coverage_list = []
+	for seq_info in seq_info_list:
+		sum_coverage = 0
+		#minus 1 because I guess in what prokka returns the sequence starts from position 1
+		start, end = seq_info['start_pos']-1, seq_info['end_pos']-1
+		if start > end:
+			start, end = end, start
+		found = False
+		for j, node_info in enumerate(path_info):
+			if node_info['start']<= start and node_info['end']>= start:
+				found = True
+				#the annotated gene is represented by a single node
+				if node_info['end'] >= end:
+					sum_coverage = (end - start + 1) * node_info['coverage']
+				else:
+					#calculate the length of node representing the gene
+					sum_coverage = (node_info['end'] - start + 1)*node_info['coverage']
+					n_index = j + 1
+					assert n_index < len(path_info), "wrong index calculated for path_info!!"
+					while (n_index < len(path_info) and path_info[n_index]['start']<=end):
+						if path_info[n_index]['end'] >= end:
+							sum_coverage+=(end-path_info[n_index]['start']+1)*path_info[n_index]['coverage']
+							break
+						else:
+							sum_coverage+=(path_info[n_index]['end']-path_info[n_index]['start']+1)*path_info[n_index]['coverage']
+						n_index+=1
+				coverage_list.append(sum_coverage / (end-start+1))
+				break
+		if not found:
+			print("ERROR: no nodes were found for this gene!!!")
+			import pdb; pdb.set_trace()
+			sys.exit()
+	return coverage_list
+
 def neighborhood_comparison(amr_file, ref_genome_files, neighborhood_seq_file, \
-								contig_file, seq_length, output_dir, prokka_prefix,\
-								use_RGI = True, RGI_include_loose = False, output_name ='',
-								amr_threshold = 95):
+								path_info_file, contig_file, seq_length,\
+								output_dir, prokka_prefix, use_RGI = True,\
+								RGI_include_loose = False, output_name ='',
+								amr_threshold = 95, ):
 	"""
 	To annotate reference genomes (a piece extracted around the AMR gene) as well as
 		extracted neighborhood sequences from assembly graph, summarize the results
@@ -590,15 +650,15 @@ def neighborhood_comparison(amr_file, ref_genome_files, neighborhood_seq_file, \
 	if use_RGI:
 		annotation_writer.writerow(["seq_name", "seq_value", "seq_length",\
 								"matched_contig", "gene", "prokka_gene_name", "product", \
-								"length", "start_pos", "end_pos", 'RGI_prediction_type'])
+								"length", "start_pos", "end_pos", 'RGI_prediction_type', 'coverage'])
 		visual_annotation_writer.writerow(["seq_name", "seq_value", "seq_length",\
 								"matched_contig", "gene", "prokka_gene_name", "product", \
-								"length", "start_pos", "end_pos", 'RGI_prediction_type'])
+								"length", "start_pos", "end_pos", 'RGI_prediction_type', 'coverage'])
 	else:
 		annotation_writer.writerow(["seq_name", "seq_value", "seq_length",\
-								"matched_contig", "gene", "product", "length", "start_pos", "end_pos"])
+								"matched_contig", "gene", "product", "length", "start_pos", "end_pos", 'coverage'])
 		visual_annotation_writer.writerow(["seq_name", "seq_value", "seq_length",\
-								"matched_contig", "gene", "product", "length", "start_pos", "end_pos"])
+								"matched_contig", "gene", "product", "length", "start_pos", "end_pos", 'coverage'])
 	gene_file_name = annotate_dir+'/seq_comparison_genes'+output_name+'.txt'
 	gene_file = open(gene_file_name, 'w')
 	product_file_name = annotate_dir+'/seq_comparison_products'+output_name+'.txt'
@@ -623,7 +683,7 @@ def neighborhood_comparison(amr_file, ref_genome_files, neighborhood_seq_file, \
 			myLine1 = myLine2 = seq_description + ':\t'
 			for seq_info in seq_info_list:
 				write_info_in_annotation_file(annotation_writer, visual_annotation_writer,
-											seq_description, seq, "", seq_info, use_RGI, False)
+											seq_description, seq, "", seq_info, '', use_RGI, False)
 				if seq_info['gene']=='':
 					seq_info['gene']='UNKNOWN'
 				myLine1+=seq_info['gene']+'---'
@@ -639,6 +699,10 @@ def neighborhood_comparison(amr_file, ref_genome_files, neighborhood_seq_file, \
 	#annotate the sequences extraced from assembly graph
 	counter = 1
 	all_seq_info_lists =[]
+	#Read path_info from the file
+	path_info_list = []
+	if path_info_file!=-1:
+		path_info_list = read_path_info_file(path_info_file)
 	logging.info('Reading '+ neighborhood_seq_file + ' for '+ amr_file)
 	#print('Reading '+ neighborhood_seq_file + ' for '+ amr_file )
 	with open(neighborhood_seq_file, 'r') as read_obj:
@@ -655,14 +719,18 @@ def neighborhood_comparison(amr_file, ref_genome_files, neighborhood_seq_file, \
 			seq_description = 'extracted'+str(counter)
 			seq_info_list = annotate_sequence(line, seq_description, annotate_dir+'/',
 											prokka_prefix, use_RGI, RGI_include_loose)
+			if path_info_list:
+				coverage_list = find_gene_coverage(seq_info_list, path_info_list[counter-1])
 			found = seq_annotation_already_exist(seq_info_list, all_seq_info_lists)
 			if not found:
 				all_seq_info_lists.append(seq_info_list)
 			myLine1 = myLine2 = seq_description +':\t'
-			for seq_info in seq_info_list:
+			for i, seq_info in enumerate(seq_info_list):
+				if path_info_list:
+					coverage = coverage_list[i]
 				write_info_in_annotation_file(annotation_writer, visual_annotation_writer,
 											seq_description, line[:-1], contig_name,
-											seq_info, use_RGI, found)
+											seq_info, coverage, use_RGI, found)
 				if seq_info['gene']=='':
 					seq_info['gene']='UNKNOWN'
 				myLine1+=seq_info['gene']+'---'
@@ -875,21 +943,27 @@ def extract_files(gfiles, message):
 		myfiles = [os.path.join(gfiles, f) for f in os.listdir(gfiles) \
 							if os.path.isfile(os.path.join(gfiles, f))]
 		return myfiles
-	else:
+	elif message!='':
 		logging.error(message)
 		#print(message)
 		sys.exit()
 
-def find_corrsponding_seq_file(amr_name, sequences_file_names, seq_length):
+def find_corrsponding_seq_path_file(amr_name, sequences_file_names, path_info_file_names, seq_length):
 	"""
 	To return the name of a sequence file (from sequences_file_names)
+	and the name of a path file (from path_info_file_names)
 	dedicated to sequences extracted with a given length (seq_length)
 	from a given amr sequence (amr_name)
 	"""
+	seq_file = -1
 	for file_name in sequences_file_names:
 		if SEQ_NAME_PREFIX+amr_name+'_'+str(seq_length) in file_name:
-			return file_name
-	return -1
+			seq_file = file_name
+	path_file = -1
+	for file_name in path_info_file_names:
+		if SEQ_NAME_PREFIX+amr_name+'_'+str(seq_length) in file_name:
+			path_file = file_name
+	return seq_file, path_file
 
 def main(params):
 	logging.info("Startting the pipeline ...")
@@ -906,6 +980,7 @@ def main(params):
 	read2 = ""
 	metagenome_file = ""
 	genome_amr_files = []
+	path_info_files = []
 	seq_files = []
 	gfa_file = None
 	amr_files = []
@@ -982,11 +1057,12 @@ def main(params):
 			logging.info('amr_file = '+amr_file)
 			#print('amr_file = '+amr_file)
 			output_name = SEQ_NAME_PREFIX+os.path.splitext(os.path.basename(amr_file))[0]
-			seq_file = neighborhood_sequence_extraction(amr_file, gfa_file, params.seq_length,
+			seq_file, path_info_file = neighborhood_sequence_extraction(amr_file, gfa_file, params.seq_length,
 								params.output_dir+SEQ_DIR_NAME, params.BANDAGE_PATH,
 								params.amr_identity_threshold, output_name,
 								params.path_node_threshold , params.path_seq_len_percent_threshod)
 			if seq_file:
+				path_info_files.append(path_info_file)
 				seq_files.append(seq_file)
 
 	if Pipeline_tasks.neighborhood_comparison.value in task_list:
@@ -994,9 +1070,13 @@ def main(params):
 		if seq_files:
 			neighborhood_files = seq_files
 		else:
-			neighborhood_files = extract_files(params.neighborhood_seq_files, 'please provide the \
+			neighborhood_files = extract_files(params.ng_seq_files, 'please provide the \
 				address of the files containing all extracted sequences from AMR neighborhood \
 				in the assembly graph')
+		if path_info_files:
+			nodes_info_files = path_info_files
+		else:
+			nodes_info_files = extract_files(params.ng_path_info_files, '')
 		contig_file = verify_file_existence(contigs_file, params.contig_file,
 				'please provide the address of the file containing contigs after assembly')
 		if params.artificial_amr_insertion:
@@ -1012,15 +1092,18 @@ def main(params):
 			genome_files = ref_genome_files
 		for amr_file in amr_files:
 			amr_name = os.path.splitext(os.path.basename(amr_file))[0]
-			neighborhood_file = find_corrsponding_seq_file(amr_name, neighborhood_files, params.seq_length)
+			neighborhood_file, nodes_info_file = find_corrsponding_seq_path_file(amr_name, neighborhood_files,
+													nodes_info_files, params.seq_length)
 			if neighborhood_file == -1:
 				logging.error('no sequence file for the corresponding amr file was found!')
 				#print('no sequence file for the corresponding amr file was found!')
 				sys.exit()
 			annotation_detail, gene_annotation, product_annotation, visual_annotation=\
 				neighborhood_comparison(amr_file, genome_files,neighborhood_file,
-					contig_file, params.seq_length, params.output_dir,params.PROKKA_COMMAND_PREFIX,
-					params.use_RGI, params.RGI_include_loose, '_'+amr_name, params.amr_identity_threshold)
+					nodes_info_file,contig_file, params.seq_length,
+					params.output_dir,params.PROKKA_COMMAND_PREFIX,params.use_RGI,
+					params.RGI_include_loose, '_'+amr_name,
+					params.amr_identity_threshold)
 
 	logging.info("All Done!")
 
@@ -1069,8 +1152,10 @@ if __name__=="__main__":
 		help = 'the maximum distance of neighborhood nodes to be extracted from the AMR gene')
 	parser.add_argument('--seq_length', '-L', type = int, default=params.seq_length,
 		help = 'the length of AMR gene\'s neighbourhood to be extracted')
-	parser.add_argument('--neighborhood_seq_files', nargs="+", default = params.neighborhood_seq_files,
+	parser.add_argument('--ng_seq_files', nargs="+", default = params.ng_seq_files,
 		help = 'the address of the files containing all extracted neighborhood sequences in assembly graph')
+	parser.add_argument('--ng_path_info_files', nargs="+", default = params.ng_path_info_files,
+		help = 'the address of the files containing all path information for extracted neighborhood sequences in assembly graph')
 	parser.add_argument('--gfa_file', type = str, default = params.gfa_file,
 		help = 'the address of the file for assembly graph')
 	parser.add_argument('--contig_file', type = str, default = params.contig_file,
@@ -1115,7 +1200,8 @@ if __name__=="__main__":
 	params.spades_output_dir = args.spades_output_dir
 	params.graph_distance = args.graph_distance
 	params.seq_length = args.seq_length
-	params.neighborhood_seq_files = args.neighborhood_seq_files
+	params.ng_seq_files = args.ng_seq_files
+	params.ng_path_info_files =  args.ng_path_info_files
 	params.gfa_file = args.gfa_file
 	params.contig_file = args.contig_file
 	params.genome_amr_files = args.genome_amr_files

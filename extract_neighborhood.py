@@ -1377,7 +1377,7 @@ def write_paths_info_to_file(paths_info_list, paths_info_file):
 		writer = csv.writer(fd)
 		for i, path_info in enumerate(paths_info_list):
 			for node_info in path_info:
-				writer.writerow([i, node_info['node'], node_info['coverage'],
+				writer.writerow([i+1, node_info['node'], node_info['coverage'],
 									node_info['start'], node_info['end']])
 
 
@@ -1681,7 +1681,7 @@ def neighborhood_sequence_extraction(amr_file, gfa_file, length, output_dir,
 		logging.info("NOTE: The list of neighborhood sequences (extracted from assembly graph)\
 	 		has been stroed in " + seq_file)
 		write_paths_info_to_file(path_info_list, paths_info_file)
-	return seq_file
+	return seq_file, paths_info_file
 
 def neighborhood_graph_extraction(amr_file, gfa_file, distance, output_dir,
 								bandage = BANDAGE_PATH, threshold = 95,
