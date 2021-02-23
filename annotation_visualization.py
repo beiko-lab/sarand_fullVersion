@@ -19,31 +19,32 @@ import csv
 from csv import DictReader
 
 def show_images(image_list, main_title, output, cols = 1, title_list = None):
-    """
-    Display a list of images in a single figure with matplotlib
-    Parameters:
-        image_list: List of np.arrays compatible with plt.imshow
-        main_title: The main title of the generated figure
-        output: The address of the generated image to be saved in
-        cols (Default = 1): Number of columns in figure (number of rows is
-                        set to np.ceil(n_images/float(cols)))
-        title_list: List of titles corresponding to each image. Must have
-            the same length as titles
-    """
-    assert((title_list is None)or (len(image_list) == len(title_list)))
-    n_images = len(image_list)
-    if title_list is None: title_list = ['Image (%d)' % i for i in range(1,n_images + 1)]
-    fig = plt.figure()
-    for n, (image, title) in enumerate(zip(image_list, title_list)):
-        a = fig.add_subplot(np.ceil(n_images/float(cols)), cols, n + 1)
-        plt.imshow(image)
-        ax = plt.gca()
-        ax.axes.xaxis.set_ticks([])
-        ax.axes.yaxis.set_ticks([])
-        plt.xlabel(title, size = 22)
-    fig.suptitle(main_title, size = 38)
-    fig.set_size_inches(np.array(fig.get_size_inches()) * n_images)
-    plt.savefig(output)
+	"""
+	Display a list of images in a single figure with matplotlib
+	Parameters:
+		image_list: List of np.arrays compatible with plt.imshow
+		main_title: The main title of the generated figure
+		output: The address of the generated image to be saved in
+		cols (Default = 1): Number of columns in figure (number of rows is
+			set to np.ceil(n_images/float(cols)))
+		title_list: List of titles corresponding to each image. Must have
+		the same length as titles
+	"""
+	assert((title_list is None)or (len(image_list) == len(title_list)))
+	#import pdb; pdb.set_trace()
+	n_images = len(image_list)
+	if title_list is None: title_list = ['Image (%d)' % i for i in range(1,n_images + 1)]
+	fig = plt.figure()
+	for n, (image, title) in enumerate(zip(image_list, title_list)):
+		a = fig.add_subplot(np.ceil(n_images/float(cols)), cols, n + 1)
+		plt.imshow(image)
+		ax = plt.gca()
+		ax.axes.xaxis.set_ticks([])
+		ax.axes.yaxis.set_ticks([])
+		plt.xlabel(title, size = 22)
+	fig.suptitle(main_title, size = 38)
+	fig.set_size_inches(np.array(fig.get_size_inches()) * n_images)
+	plt.savefig(output)
 
 def extract_annotation_from_csv(input_csv_file):
 	"""
@@ -61,8 +62,12 @@ def extract_annotation_from_csv(input_csv_file):
 		myreader = DictReader(myfile)
 		old_seq = ''
 		for row in myreader:
+			if row['coverage']!='':
+				coverage = ' ('+str(round(float(row['coverage']), 2))+')'
+			else:
+				coverage = ''
 			gene_info = {'name':row['gene'], 'start_pos':int(row['start_pos']),
-                        'end_pos':int(row['end_pos'])}
+                        'end_pos':int(row['end_pos']), 'coverage':coverage}
 			cur_seq = row['seq_name']
 			if cur_seq!=old_seq:
 				if (seq_info):
@@ -76,27 +81,27 @@ def extract_annotation_from_csv(input_csv_file):
 	return seq_info_list, seq_length_list, title_list
 
 def visualize_annotation(input_csv_file, output, title=''):
-    """
+	"""
 	The core function to read the csv file containing annotations into image_list
 	object and visualize them in an image
 	Parameetrs:
 		input_csv_file:	the csv file containing the annotation for all extracted sequences
 		output:			the address of the generated image to be saved in
 		title:			the title used in the generated image
-    """
-    seq_info_list, seq_length_list, title_list = extract_annotation_from_csv(input_csv_file)
-    image_list = []
-    for counter, seq_info in enumerate(seq_info_list):
-        features = []
-        for gene_info in seq_info:
-            features.append(GraphicFeature(start = gene_info['start_pos'], end=gene_info['end_pos'],
-                strand=+1, color='#ffd700', label = gene_info['name']))
-        record = GraphicRecord(sequence_length=seq_length_list[counter], features=features)
-        ax, _  = record.plot(figure_width=10)
-        ax.figure.savefig('temp'+str(counter)+'.jpg', bbox_inches='tight')
-        img = Image.open('temp'+str(counter)+'.jpg')
-        image_list.append(img)
-    show_images(image_list=image_list, main_title = title, output = output, title_list = title_list)
+	"""
+	seq_info_list, seq_length_list, title_list = extract_annotation_from_csv(input_csv_file)
+	image_list = []
+	for counter, seq_info in enumerate(seq_info_list):
+		features = []
+		for gene_info in seq_info:
+			features.append(GraphicFeature(start = gene_info['start_pos'], end=gene_info['end_pos'],
+				strand=+1, color='#ffd700', label = gene_info['name']+gene_info['coverage']))
+		record = GraphicRecord(sequence_length=seq_length_list[counter], features=features)
+		ax, _  = record.plot(figure_width=10)
+		ax.figure.savefig('temp'+str(counter)+'.jpg', bbox_inches='tight')
+		img = Image.open('temp'+str(counter)+'.jpg')
+		image_list.append(img)
+	show_images(image_list=image_list, main_title = title, output = output, title_list = title_list)
 
 def main(args):
 	"""
