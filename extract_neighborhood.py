@@ -28,13 +28,17 @@ from Bio import SeqIO
 from gfapy.sequence import rc
 import shutil
 import logging
+import enum
+
+from utils import reverse_sign, find_node_orient, find_node_name, find_node_name_orient,\
+					exist_in_path
+from params import Assembler_name
 #from find_seq_in_contigs import find_sequence_match
 
 BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
-MAX_PATH_NODES = 6
 OUT_DIR = 'output/'
 BOTH_DIR_RECURSIVE = True
-MAX_K_MER_SIZE = 55
+#MAX_K_MER_SIZE = 55
 #if this feature is true after that the extracted length reaches a threshold, we don't go
 #over all edges in the neighbourhood (in pre_sequence and post_sequence extraction)
 #and only extract the sequence from the longest one to reduce the processing time!!!
@@ -54,57 +58,6 @@ def retrieve_AMR(file_path):
 			if line.startswith('>'):
 				continue
 			return line.lower()
-
-def reverse_sign(sign):
-	"""
-	To reverse the sign (+/-)
-	Parameetr:
-		sign: either + or -
-	Return:
-		the reverse sign
-	"""
-	if sign=='-':
-		return '+'
-	elif sign=='+':
-		return '-'
-	else:
-		logging.error("ERROR: ivalid sign!")
-		#print("ERROR: ivalid sign!")
-		sys.exit()
-
-def find_node_orient(node):
-	"""
-	To remove specific characters and return the last character of what remains
-	as the orient of the node
-	"""
-	return re.sub('[]}]', '', node)[-1]
-
-def find_node_name(node):
-	"""
-	To remove specific characters and return the rest except the last character
-	as the node name
-	"""
-	return re.sub('[]{}[]','', node)[:-1]
-
-def find_node_name_orient(node):
-	"""
-	To remove specific characters and return the rest as the name+orient of the node
-	"""
-	return re.sub('[]{}[]','', node)
-
-def exist_in_path(path, mynode):
-	"""
-	To check if a given node exists in the path
-	Parameters:
-		path:	a list of nodes
-		mynde:	the node to check if it is in the path
-	Return:
-		True if mynode is in the path; False otherwise
-	"""
-	for i, node in enumerate(path):
-		if find_node_name_orient(node)==mynode:
-			return i
-	return -1
 
 def compare_two_sequences(seq1, seq2, output_dir, threshold = 90, blast_ext = ''):
 	"""
@@ -273,7 +226,7 @@ def extract_amr_neighborhood_in_ref_genome(amr_seq, ref_path, neighborhood_len, 
 				reverse_complement = True
 			for record in SeqIO.parse(open(ref_path,'r'),'fasta'):
 				#if record.id == record_name:
-				if record_name in record.id:
+				if record_name == record.id:
 					amr_start = amr_start -1
 					if amr_start-neighborhood_len >= 0:
 						#seq = str(record.seq[amr_start-neighborhood_len:amr_end])
@@ -483,7 +436,7 @@ def find_overlap(from_node, to_node, from_orient, to_orient, validate_overlap_si
 			edge.from_orient == from_orient and edge.to_orient == to_orient:
 			if edge.overlap[0].code == 'M':
 				size = edge.overlap[0].length
-				if (validate_overlap_size):
+				if (size>0 and validate_overlap_size):
 					seq1 = sequence_on_orientation(edge.from_segment.sequence, edge.from_orient)
 					seq2 = sequence_on_orientation(edge.to_segment.sequence, edge.to_orient)
 					if seq1[len(seq1)-size:] != seq2[:size]:
@@ -1460,7 +1413,8 @@ def write_paths_info_to_file(paths_info_list, paths_info_file, seq_counter):
 
 def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos,
 								end_pos, pre_path_list, pre_path_length_list,
-								post_path_list, post_path_length_list):
+								post_path_list, post_path_length_list,
+								max_kmer_size, assembler = Assembler_name.meta_spades):
 	"""
 	"""
 	if not pre_path_list:
@@ -1472,7 +1426,13 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 	amr_path_length_info = []
 	for i, node in enumerate(node_list):
 		segment = myGraph.segment(node)
-		coverage = segment.KC/(len(segment.sequence)-MAX_K_MER_SIZE)
+		if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
+			coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
+		elif assembler == Assembler_name.megahit:
+			coverage = float(node.split('cov_')[1].split('_')[0])
+		else:
+			logging.error("no way of calculating node coverage has been defined for this assembler!")
+			sys.exit()
 		#the length of first node in amr
 		if i == 0 and len(node_list)==1:
 			length = end_pos - start_pos + 1
@@ -1503,13 +1463,25 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 		for node, length in zip(path, path_length[:end_common]):
 			pure_node = find_node_name(node)
 			segment = myGraph.segment(pure_node)
-			coverage = segment.KC/(len(segment.sequence)-MAX_K_MER_SIZE)
+			if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
+				coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
+			elif assembler == Assembler_name.megahit:
+				coverage = float(pure_node.split('cov_')[1].split('_')[0])
+			else:
+				logging.error("no way of calculating node coverage has been defined for this assembler!")
+				sys.exit()
 			node_info = {'node': pure_node, 'coverage': coverage, 'start': start, 'end': start+length-1}
 			start = start+length
 			pre_path_info.append(node_info)
 		if len(path)==len(path_length) - 1:
 			segment = myGraph.segment(node_list[0])
-			coverage = segment.KC/(len(segment.sequence)-MAX_K_MER_SIZE)
+			if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
+				coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
+			elif assembler == Assembler_name.megahit:
+				coverage = float(node_list[0].split('cov_')[1].split('_')[0])
+			else:
+				logging.error("no way of calculating node coverage has been defined for this assembler!")
+				sys.exit()
 			node_info_last = {'node': node_list[0], 'coverage': coverage, 'start': start, 'end': start+path_length[-1]-1}
 			pre_path_info.append(node_info_last)
 		pre_paths_info.append(pre_path_info)
@@ -1535,14 +1507,26 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 		start_index = len(path_length) - len(path)
 		if len(path)==len(path_length) - 1:
 			segment = myGraph.segment(node_list[-1])
-			coverage = segment.KC/(len(segment.sequence)-MAX_K_MER_SIZE)
+			if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
+				coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
+			elif assembler == Assembler_name.megahit:
+				coverage = float(node_list[-1].split('cov_')[1].split('_')[0])
+			else:
+				logging.error("no way of calculating node coverage has been defined for this assembler!")
+				sys.exit()
 			node_info = {'node': node_list[-1], 'coverage': coverage, 'start': start, 'end': start+path_length[0]-1}
 			post_path_info.append(node_info)
 			start = start + path_length[0]
 		for node, length in zip(path, path_length[start_index:]):
 			pure_node = find_node_name(node)
 			segment = myGraph.segment(pure_node)
-			coverage = segment.KC/(len(segment.sequence)-MAX_K_MER_SIZE)
+			if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
+				coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
+			elif assembler == Assembler_name.megahit:
+				coverage = float(pure_node.split('cov_')[1].split('_')[0])
+			else:
+				logging.error("no way of calculating node coverage has been defined for this assembler!")
+				sys.exit()
 			node_info = {'node': pure_node, 'coverage': coverage, 'start': start, 'end': start+length-1}
 			start = start+length
 			post_path_info.append(node_info)
@@ -1568,7 +1552,8 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 
 def extract_neighborhood_sequence(gfa_file, length, node_list, orientation_list,
 									start_pos, end_pos, remained_len_thr, path_thr,
-									output_name):
+									output_name, max_kmer_size,
+									assembler = Assembler_name.meta_spades):
 	"""
 	To extract all linear sequences with length = length from the start and end of the AMR gene
 	Parameters:
@@ -1620,7 +1605,7 @@ def extract_neighborhood_sequence(gfa_file, length, node_list, orientation_list,
 	logging.debug('Running generate_node_range_coverage '+output_name+' ...')
 	path_length_list = generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos,
 							end_pos, pre_path_list, pre_path_length_list,
-							post_path_list, post_path_length_list)
+							post_path_list, post_path_length_list, max_kmer_size, assembler)
 	#Combine pre_ and post_ sequences and paths
 	logging.debug('Running generate_sequence_path '+output_name+' ...')
 	sequence_list, path_list, path_info_list = generate_sequence_path(myGraph,
@@ -1727,6 +1712,8 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 									#output_name = 'ng_sequences',
 									path_node_threshold = 10 ,
 									path_seq_len_percent_threshod = 90,
+									max_kmer_size = 55,
+									assembler = Assembler_name.meta_spades,
 									amr_seq_align_file = ''):
 	"""
 	The core function to extract the sequences/paths preceding and following the AMR sequence
@@ -1795,7 +1782,8 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 		sequence_list, path_list, path_info_list =\
 							extract_neighborhood_sequence(gfa_file, length,
 							node_list, orientation_list, start_pos, end_pos,
-							remained_len_thr, path_node_threshold, output_name)
+							remained_len_thr, path_node_threshold, output_name,
+							max_kmer_size, assembler)
 		if not sequence_list:
 			continue
 		write_sequences_to_file(sequence_list, path_list, seq_file)

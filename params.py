@@ -9,9 +9,38 @@ NOTE: all parameters can be set in params.py
 NOTE: if use_RGI = TRUE, make sure either RGI has been installed system-wide or
 	you already are in the environment RGI installed in!
 """
+import enum
 
-from full_pipeline import Pipeline_tasks
-from full_pipeline import Insertion_type
+#from full_pipeline import Pipeline_tasks
+#from full_pipeline import Insertion_type
+
+"""
+# The list of valid tasks
+# to use them set task in params.py:
+# for a single task: insert its value as the single item in task list
+# for a range of tasks: insert the value of start and end as the first and the second (last) item in the list
+# for all tasks: task = [0]
+"""
+class Pipeline_tasks(enum.Enum):
+	all = 0
+	metagenome_creation = 1
+	read_simulation = 2
+	assembly = 3
+	graph_neighborhood = 4
+	sequence_neighborhood = 5
+	neighborhood_annotation = 6
+	neighborhood_evaluation = 7
+
+# Whether to insert the AMR sequence in arandom or pre-defined location of the genome
+# in case of amr artificial insertion
+class Insertion_type(enum.Enum):
+	random = 1
+	assigned = 2
+
+class Assembler_name(enum.Enum):
+    meta_spades = 1
+    megahit = 2
+    bcalm = 3
 
 BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
 ART_PATH = '/media/Data/tools/art_src_MountRainier_Linux/art_illumina'
@@ -21,35 +50,25 @@ PATH_PREFIX = '/media/Data/PostDoc/Dalhousie/Work/Test2/'
 
 multi_processor = True
 core_num = 4
-coverage_thr = 2
-task = [6, 7]
+coverage_thr = 30
+task = [5, 7]
 
 #output_dir = 'Experiments/1_1_1_limit/'
 #output_dir = 'Experiments/real_sample1/'
 output_dir = 'Experiments/CAMI_M_1/'
 
-#amr_file = PATH_PREFIX + 'TRU-1.fasta'
-#amr_files = PATH_PREFIX + output_dir + 'AMR/sequences/APH3-Ia.fasta'
-#amr_files = PATH_PREFIX + output_dir + 'AMR/sequences/AAC6-Ib.fasta'
-#amr_files = PATH_PREFIX + output_dir + 'AMR/sequences/dfrA14.fasta'
-#amr_files = PATH_PREFIX +  output_dir + 'AMR/sequences/StaphylococcusaureusFosB.fasta'
-#amr_files = PATH_PREFIX + output_dir + 'AMR/sequences/ErmA.fasta'
-#amr_files = PATH_PREFIX + output_dir + 'AMR/sequences/ANT2-Ia.fasta'
-#amr_files = PATH_PREFIX + output_dir + 'AMR/sequences/TEM-181.fasta'
-#amr_files = PATH_PREFIX + output_dir + 'AMR/sequences/KlebsiellapneumoniaeOmpK37.fasta'
+##amr_files = PATH_PREFIX + output_dir + 'AMR/sequences/TEM-181.fasta'
 amr_files = PATH_PREFIX + output_dir +'AMR/sequences/'
 artificial_amr_insertion = False
-find_amr_genes = False
+find_amr_genes = True
 amr_identity_threshold =  95
 
-#ref_genome_number = 2
 ref_genomes_available = False
 ref_genome_files = PATH_PREFIX + output_dir + 'metagenome_data/'
 #ref_genome_files = [PATH_PREFIX + 'SE_FDAARGOS_768.fasta', PATH_PREFIX + 'enterococcus_zy2.fasta']
-#ref_genome_files = [PATH_PREFIX + 'SE_FDAARGOS_768.fasta']
 ref_CAMI_genome_available = True
 ref_CAMI_file = PATH_PREFIX + output_dir + 'M2_S001__insert_180_gsa_anonymous.fasta'
-#ref_CAMI_file = PATH_PREFIX + output_dir + 'S_S001__genomes_30__insert_180_gsa_anonymous.fasta.gz'
+#ref_CAMI_file = PATH_PREFIX + output_dir + 'M2_S002__insert_180_gsa_anonymous.fasta'
 
 
 #insertion of AMR gene in ref_genome
@@ -58,36 +77,40 @@ number_of_copies = [[3, 1],[1]]
 insertion_type = Insertion_type.random
 insertion_locations = []
 
-#genome_amr_files = [PATH_PREFIX + output_dir + "SE_FDAARGOS_768_TRU-1_25292.fasta",
-#                    PATH_PREFIX + output_dir + "SE_FDAARGOS_768_TRU-1_49186.fasta"]
 genome_amr_files = [PATH_PREFIX + output_dir + "SE_FDAARGOS_768_TRU-1_37589.fasta",
                     PATH_PREFIX + output_dir + "enter_zy2_TRU1_19098.fasta"]
-#genome_amr_files = [PATH_PREFIX + output_dir + "SE_FDAARGOS_768_TRU-1_5008.fasta",
-#                    PATH_PREFIX + output_dir + "enter_zy2_TRU1_24316.fasta"]
-#genome_amr_files = [PATH_PREFIX + output_dir + "SE_FDAARGOS_768_TRU-1_17439.fasta",
-#                    PATH_PREFIX + output_dir + "SE_FDAARGOS_768_TRU-1_51890.fasta"]
 
 #simulating reads
 read_length =  150
 metagenome_file = PATH_PREFIX + output_dir +'metagenome.fasta'
-#read1=PATH_PREFIX + output_dir + "metagenome_1.fq"
-#read2=PATH_PREFIX + output_dir + "metagenome_2.fq"
-# read1=PATH_PREFIX + output_dir + 'sub50_trimmed_ERR1713331_1.fastq'
-# read2=PATH_PREFIX + output_dir + 'sub50_trimmed_ERR1713331_2.fastq'
 #reads =[PATH_PREFIX + output_dir + 'sub50_trimmed_ERR1713331_1.fastq',\
 # 		PATH_PREFIX + output_dir + 'sub50_trimmed_ERR1713331_2.fastq']
 reads = PATH_PREFIX + output_dir +'H_S001__insert_180_reads_anonymous.fq.gz'
 spades_thread_num = 16
-spades_output_dir = 'spades_output'
-#spades_output_dir = 'megahit_output'
+
+assembler = Assembler_name.bcalm
+#Setting for assembler
+if assembler == Assembler_name.meta_spades:
+	assembler_output_dir = 'spades_output'
+	gfa_file = PATH_PREFIX + output_dir + assembler_output_dir + '/assembly_graph_with_scaffolds.gfa'
+	contig_file = PATH_PREFIX + output_dir + assembler_output_dir + '/contigs.fasta'
+	max_kmer_size = 55
+elif assembler == Assembler_name.megahit:
+	assembler_output_dir = 'megahit_output'
+	gfa_file = PATH_PREFIX + output_dir + assembler_output_dir + '/k59.gfa'
+	contig_file = PATH_PREFIX + output_dir + assembler_output_dir + '/final.contigs.fa'
+	#contig_file = PATH_PREFIX + output_dir + assembler_output_dir + '/intermediate_contigs/k59.contigs.fa'
+	max_kmer_size = 59
+elif assembler == Assembler_name.bcalm:
+	assembler_output_dir = 'bcalm_output'
+	gfa_file = PATH_PREFIX + output_dir + assembler_output_dir + '/bcalm_graph_55.gfa'
+	#doesn't produce any contig file; so just sue the one from meta-pades for evaluation
+	contig_file = PATH_PREFIX + output_dir + 'spades_output/contigs.fasta'
+	max_kmer_size = 54
 spades_error_correction = True
 
-gfa_file = PATH_PREFIX + output_dir + spades_output_dir + '/assembly_graph_with_scaffolds.gfa'
-contig_file = PATH_PREFIX + output_dir + spades_output_dir + '/contigs.fasta'
-#gfa_file = PATH_PREFIX + output_dir + spades_output_dir + '/k99.gfa'
-#contig_file = PATH_PREFIX + output_dir + spades_output_dir + '/final.contigs.fa'
 graph_distance = 3
-seq_length = 5000
+seq_length = 1000
 
 # to be used in sequence extraction and after having path_node_threshold number of
 #nodes in our path or already extracting path_seq_len_percent_threshod percent of
