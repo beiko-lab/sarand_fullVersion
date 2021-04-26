@@ -17,6 +17,7 @@ from PIL import Image
 import argparse
 import csv
 from csv import DictReader
+import logging
 
 def show_images(image_list, main_title, output, cols = 1, title_list = None):
 	"""
@@ -78,6 +79,9 @@ def extract_annotation_from_csv(input_csv_file):
 				seq_length_list.append(int(row['seq_length']))
 			seq_info.append(gene_info)
 		seq_info_list.append(seq_info)
+	if len(seq_info_list)>20:
+		logging.error("there are more than 20 sequences to visualize!")
+		return [], [], []
 	return seq_info_list, seq_length_list, title_list
 
 def visualize_annotation(input_csv_file, output, title=''):
@@ -90,8 +94,12 @@ def visualize_annotation(input_csv_file, output, title=''):
 		title:			the title used in the generated image
 	"""
 	seq_info_list, seq_length_list, title_list = extract_annotation_from_csv(input_csv_file)
+	if not seq_info_list:
+		return
 	image_list = []
 	for counter, seq_info in enumerate(seq_info_list):
+		if not seq_info:
+			break
 		features = []
 		for gene_info in seq_info:
 			features.append(GraphicFeature(start = gene_info['start_pos'], end=gene_info['end_pos'],
@@ -109,7 +117,7 @@ def main(args):
 	if args.csvfile:
 		visualize_annotation(args.csvfile, args.output, args.title)
 	else:
-		print('please enter the path for the csv file containing the sequences annotation')
+		logging.error('please enter the path for the csv file containing the sequences annotation')
 		sys.exit()
 
 if __name__=="__main__":

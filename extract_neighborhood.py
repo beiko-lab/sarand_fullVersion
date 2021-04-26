@@ -31,7 +31,8 @@ import logging
 import enum
 
 from utils import reverse_sign, find_node_orient, find_node_name, find_node_name_orient,\
-					exist_in_path
+					exist_in_path, compare_two_sequences, read_path_info_from_align_file,\
+					create_fasta_file
 from params import Assembler_name
 #from find_seq_in_contigs import find_sequence_match
 
@@ -58,39 +59,6 @@ def retrieve_AMR(file_path):
 			if line.startswith('>'):
 				continue
 			return line.lower()
-
-def compare_two_sequences(seq1, seq2, output_dir, threshold = 90, blast_ext = ''):
-	"""
-	To compare one sequence (shorter sequence) against the other one (longer sequence) using blastn
-	"""
-	#make sure seq1 is the longer sequence
-	if len(seq1)<len(seq2):
-		seq1, seq2 = seq2, seq1
-	#write the query sequence into a fasta file
-	query_file_name = output_dir+'query.fasta'
-	with open(query_file_name, 'w') as query_file:
-		query_file.write('> query \n')
-		query_file.write(seq2)
-	#write the query sequence into a fasta file
-	subject_file_name = output_dir+'subject.fasta'
-	with open(subject_file_name, 'w') as subject_file:
-		subject_file.write('> subject \n')
-		subject_file.write(seq1)
-	#run blast query for alignement
-	blast_file_name = output_dir+'blast'+blast_ext+'.csv'
-	command = 'blastn -query '+query_file_name+' -subject '+subject_file_name+\
-		' -outfmt 10  > '+ blast_file_name
-	os.system(command)
-
-	with open(blast_file_name, 'r') as file1:
-		myfile = csv.reader(file1)
-		for row in myfile:
-			identity=int(float(row[2]))
-			coverage = int(float(row[3])/len(seq2)*100)
-			if identity>=threshold and coverage>=threshold:
-				return True
-
-	return False
 
 def similar_sequence_exits(seq_list, query_seq, output_dir):
 	"""
@@ -141,7 +109,9 @@ def find_sequence_match(query, contig_file, out_dir = TEMP_DIR, blast_ext = '',
 	#run blast query for alignement
 	blast_file_name = out_dir+'/blast'+blast_ext+'.csv'
 	command = 'blastn -query '+query_file+' -db '+contig_file+\
-		' -task blastn -outfmt 10 -max_target_seqs '+str(max_target_seqs)+' -evalue 0.5 -perc_identity '+str(threshold-1)+' > '+ blast_file_name
+		' -outfmt 10 -max_target_seqs '+str(max_target_seqs)+' -evalue 0.5 -perc_identity '+str(threshold-1)+' > '+ blast_file_name
+	# command = 'blastn -query '+query_file+' -db '+contig_file+\
+	# 	' -task blastn -outfmt 10 -max_target_seqs '+str(max_target_seqs)+' -evalue 0.5 -perc_identity '+str(threshold-1)+' > '+ blast_file_name
 	# command = 'blastn -query '+query_file+' -db '+contig_file+\
 	# 	' -task blastn -outfmt 10 -max_target_seqs 5 -evalue 0.5 -perc_identity 95 > '+ blast_file_name
 
@@ -251,7 +221,6 @@ def extract_amr_neighborhood_in_ref_genome(amr_seq, ref_path, neighborhood_len, 
 			shutil.rmtree(temp_dir)
 		except OSError as e:
 			logging.error("Error: %s - %s." % (e.filename, e.strerror))
-			#print("Error: %s - %s." % (e.filename, e.strerror))
 	#added by 1 because the index starts from 0 in the string
 	return seq_list, contig_name_list
 
@@ -275,7 +244,6 @@ def extract_neighbourhood(segment, segment_list, edge_list, distance):
 			other_side = link.to_segment
 		else:
 			logging.info("WARNING: the link is a loop for node#"+segment.name)
-			#print("WARNING: the link is a loop for node#"+segment.name)
 			other_side = segment
 		if link not in edge_list:
 			edge_list.append(link)
@@ -289,7 +257,6 @@ def extract_neighbourhood(segment, segment_list, edge_list, distance):
 			other_side = link.to_segment
 		else:
 			logging.info("WARNING: the link is a loop for node#"+segment.name)
-			#print("WARNING: the link is a loop for node#"+segment.name)
 			other_side = segment
 		if link not in edge_list:
 			edge_list.append(link)
@@ -354,38 +321,6 @@ def extract_subgraph(nodes, distance, file_path):
 
 	return myGraph, segment_list, edge_list
 
-def extract_nodes_in_path(path):
-	"""
-	Parameters:
-		path:	a list of nodes with -/+ tail and comma separated : e.g., '(1363) 69-, 2193+ (1786)'
-	Return:
-		node_list:	list of node numbers -> e.g., [69, 2193]
-		orientation_list: list of orientation of nodes -> e.g., [-, +]
-		start_pos:	where in the first node the sequence has started -> e.g., 1363
-		end_pos:	where in the last node the sequence ended  -> e.g., 1786
-	"""
-	start_pos = 0
-	end_pos = 0
-	if path.startswith('('):
-		index = path.find(')')
-		start_pos = int(path[1:index])
-	if path.endswith(')'):
-		index = path.rfind('(')
-		end_pos = int(path[index+1:-1])
-	#Remove text between ()
-	path = (re.sub("\((.*?)\)", "", path)).strip()
-	node_list = []
-	orientation_list = []
-	nodes = path.split(',')
-	for node in nodes:
-		if '-' in node:
-			orientation_list.append('-')
-		else:
-			orientation_list.append('+')
-		node = re.sub('[+-]', '', node.split()[0])
-		node_list.append(node)
-	return node_list, orientation_list, start_pos, end_pos
-
 def write_sequences_to_file(sequence_list, path_list, file_name):
 	"""
 	To write the extracted sequences and paths in neighborhood of the AMR gene in a file
@@ -443,14 +378,9 @@ def find_overlap(from_node, to_node, from_orient, to_orient, validate_overlap_si
 						logging.info("WARNING: the overlap doesn't match: "+str(edge))
 						logging.info("first sequence: "+seq1)
 						logging.info("second sequence: "+seq2)
-						# print("WARNING: the overlap doesn't match: "+str(edge))
-						# print("first sequence: "+seq1)
-						# print("second sequence: "+seq2)
 			else:
 				logging.info("WARNING: the sequence from node "+from_node.name+" to node "+
 						to_node.name + "has "+ edge.overlap[0] + " instead of overlap!")
-				# print("WARNING: the sequence from node "+from_node.name+" to node "+
-				# 		to_node.name + "has "+ edge.overlap[0] + " instead of overlap!")
 			return size
 		#sometimes we have the reverse complement of the edge and not itself
 		# 15082- --> 3561-
@@ -465,14 +395,9 @@ def find_overlap(from_node, to_node, from_orient, to_orient, validate_overlap_si
 						logging.info("WARNING: the overlap doesn't match: "+str(edge))
 						logging.info("first sequence: "+seq1)
 						logging.info("second sequence: "+seq2)
-						# print("WARNING: the overlap doesn't match: "+str(edge))
-						# print("first sequence: "+seq1)
-						# print("second sequence: "+seq2)
 			else:
 				logging.info("WARNING: the sequence from node "+from_node.name+" to node "+
 						to_node.name + "has "+ edge.overlap[0] + " instead of overlap!")
-				# print("WARNING: the sequence from node "+from_node.name+" to node "+
-				# 		to_node.name + "has "+ edge.overlap[0] + " instead of overlap!")
 			return size
 	return size
 
@@ -592,7 +517,7 @@ def extract_found_amr(myGraph, node_list, orientation_list, start_pos, end_pos):
 	"""
 	if not node_list:
 		logging.error("ERROR: There is no node in node_list representing the AMR gene!")
-		#print("ERROR: There is no node in node_list representing the AMR gene!")
+		import pdb; pdb.set_trace()
 		sys.exit()
 
 	if len(node_list) == 1:
@@ -772,7 +697,6 @@ def generate_sequence_path(myGraph, node_list, orientation_list, start_pos, end_
 			shutil.rmtree(temp_dir)
 		except OSError as e:
 			logging.error("Error: %s - %s." % (e.filename, e.strerror))
-			#print("Error: %s - %s." % (e.filename, e.strerror))
 
 	return sequence_list, path_list, path_info_list
 
@@ -1410,11 +1334,25 @@ def write_paths_info_to_file(paths_info_list, paths_info_file, seq_counter):
 									node_info['start'], node_info['end']])
 	return counter
 
+def calculate_coverage(segment, max_kmer_size, node, assembler):
+	"""
+	"""
+	if assembler == Assembler_name.metaspades or assembler == Assembler_name.bcalm:
+		coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
+	elif assembler == Assembler_name.megahit:
+		coverage = float(node.split('cov_')[1].split('_')[0])
+	elif assembler == Assembler_name.metacherchant or assembler == Assembler_name.spacegraphcats :
+		coverage = -1
+	else:
+		logging.error("no way of calculating node coverage has been defined for this assembler!")
+		import pdb; pdb.set_trace()
+		sys.exit()
+	return coverage
 
 def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos,
 								end_pos, pre_path_list, pre_path_length_list,
 								post_path_list, post_path_length_list,
-								max_kmer_size, assembler = Assembler_name.meta_spades):
+								max_kmer_size, assembler = Assembler_name.metaspades):
 	"""
 	"""
 	if not pre_path_list:
@@ -1426,13 +1364,7 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 	amr_path_length_info = []
 	for i, node in enumerate(node_list):
 		segment = myGraph.segment(node)
-		if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
-			coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
-		elif assembler == Assembler_name.megahit:
-			coverage = float(node.split('cov_')[1].split('_')[0])
-		else:
-			logging.error("no way of calculating node coverage has been defined for this assembler!")
-			sys.exit()
+		coverage = calculate_coverage(segment, max_kmer_size, node, assembler)
 		#the length of first node in amr
 		if i == 0 and len(node_list)==1:
 			length = end_pos - start_pos + 1
@@ -1463,25 +1395,13 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 		for node, length in zip(path, path_length[:end_common]):
 			pure_node = find_node_name(node)
 			segment = myGraph.segment(pure_node)
-			if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
-				coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
-			elif assembler == Assembler_name.megahit:
-				coverage = float(pure_node.split('cov_')[1].split('_')[0])
-			else:
-				logging.error("no way of calculating node coverage has been defined for this assembler!")
-				sys.exit()
+			coverage = calculate_coverage(segment, max_kmer_size, pure_node, assembler)
 			node_info = {'node': pure_node, 'coverage': coverage, 'start': start, 'end': start+length-1}
 			start = start+length
 			pre_path_info.append(node_info)
 		if len(path)==len(path_length) - 1:
 			segment = myGraph.segment(node_list[0])
-			if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
-				coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
-			elif assembler == Assembler_name.megahit:
-				coverage = float(node_list[0].split('cov_')[1].split('_')[0])
-			else:
-				logging.error("no way of calculating node coverage has been defined for this assembler!")
-				sys.exit()
+			coverage = calculate_coverage(segment, max_kmer_size, node_list[0], assembler)
 			node_info_last = {'node': node_list[0], 'coverage': coverage, 'start': start, 'end': start+path_length[-1]-1}
 			pre_path_info.append(node_info_last)
 		pre_paths_info.append(pre_path_info)
@@ -1507,26 +1427,14 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 		start_index = len(path_length) - len(path)
 		if len(path)==len(path_length) - 1:
 			segment = myGraph.segment(node_list[-1])
-			if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
-				coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
-			elif assembler == Assembler_name.megahit:
-				coverage = float(node_list[-1].split('cov_')[1].split('_')[0])
-			else:
-				logging.error("no way of calculating node coverage has been defined for this assembler!")
-				sys.exit()
+			coverage = calculate_coverage(segment, max_kmer_size, node_list[-1], assembler)
 			node_info = {'node': node_list[-1], 'coverage': coverage, 'start': start, 'end': start+path_length[0]-1}
 			post_path_info.append(node_info)
 			start = start + path_length[0]
 		for node, length in zip(path, path_length[start_index:]):
 			pure_node = find_node_name(node)
 			segment = myGraph.segment(pure_node)
-			if assembler == Assembler_name.meta_spades or assembler == Assembler_name.bcalm:
-				coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
-			elif assembler == Assembler_name.megahit:
-				coverage = float(pure_node.split('cov_')[1].split('_')[0])
-			else:
-				logging.error("no way of calculating node coverage has been defined for this assembler!")
-				sys.exit()
+			coverage = calculate_coverage(segment, max_kmer_size, pure_node, assembler)
 			node_info = {'node': pure_node, 'coverage': coverage, 'start': start, 'end': start+length-1}
 			start = start+length
 			post_path_info.append(node_info)
@@ -1550,10 +1458,9 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 
 	return paths_info
 
-def extract_neighborhood_sequence(gfa_file, length, node_list, orientation_list,
-									start_pos, end_pos, remained_len_thr, path_thr,
-									output_name, max_kmer_size,
-									assembler = Assembler_name.meta_spades):
+def extract_neighborhood_sequence(gfa_file, length, amr_path_info, remained_len_thr,
+									path_thr,output_name, max_kmer_size, seq_info,
+									assembler = Assembler_name.metaspades):
 	"""
 	To extract all linear sequences with length = length from the start and end of the AMR gene
 	Parameters:
@@ -1569,7 +1476,18 @@ def extract_neighborhood_sequence(gfa_file, length, node_list, orientation_list,
 		path_thr: the threshold used for recursive pre_path and post_path
 			search as long as the length of the path is less that this threshold
 	"""
-	myGraph = gfapy.Gfa.from_file(gfa_file)
+	try:
+		myGraph = gfapy.Gfa.from_file(gfa_file)
+	except Exception as e:
+		logging.error('Not loading the graph successfully: '+e)
+		if assembler == Assembler_name.metacherchant:
+			return [],[],[],[]
+		else:
+			import pdb; pdb.set_trace()
+	node_list = amr_path_info['nodes']
+	orientation_list = amr_path_info['orientations']
+	start_pos = amr_path_info['start_pos']
+	end_pos = amr_path_info['end_pos']
 
 	last_segment = myGraph.segment(node_list[-1])
 	if start_pos == 0:
@@ -1589,18 +1507,38 @@ def extract_neighborhood_sequence(gfa_file, length, node_list, orientation_list,
 			pass
 
 	#Find the sequences and paths for the path provided by bandage+blast for AMR gene
-	#Find the sequence before the AMR gene
-	logging.debug('Running extract_pre_sequence '+output_name+' ...')
-	pre_sequence_list, pre_path_list, pre_path_length_list =\
-	 							extract_pre_sequence(myGraph.segment(node_list[0]),
-								orientation_list[0], node_list, length, start_pos,
-								compare_dir, remained_len_thr, path_thr)
-	#Find the sequence after the AMR gene
-	logging.debug('Running extract_post_sequence '+output_name+' ...')
-	post_sequence_list, post_path_list, post_path_length_list =\
-								extract_post_sequence(last_segment,
-								orientation_list[-1], node_list, length, end_pos,
-								compare_dir, remained_len_thr, path_thr)
+	if not seq_info['pre_seq']:
+		#Find the sequence before the AMR gene
+		logging.debug('Running extract_pre_sequence '+output_name+' ...')
+		pre_sequence_list, pre_path_list, pre_path_length_list =\
+		 							extract_pre_sequence(myGraph.segment(node_list[0]),
+									orientation_list[0], node_list, length, start_pos,
+									compare_dir, remained_len_thr, path_thr)
+		seq_info['pre_seq'] = pre_sequence_list
+		seq_info['pre_path'] = pre_path_list
+		seq_info['pre_len'] = pre_path_length_list
+	else:
+		#up_stream has already found for another path with the same start node and position
+		pre_sequence_list = seq_info['pre_seq']
+		pre_path_list = seq_info['pre_path']
+		pre_path_length_list = seq_info['pre_len']
+
+	if not seq_info['post_seq']:
+		#Find the sequence after the AMR gene
+		logging.debug('Running extract_post_sequence '+output_name+' ...')
+		post_sequence_list, post_path_list, post_path_length_list =\
+									extract_post_sequence(last_segment,
+									orientation_list[-1], node_list, length, end_pos,
+									compare_dir, remained_len_thr, path_thr)
+		seq_info['post_seq'] = post_sequence_list
+		seq_info['post_path'] = post_path_list
+		seq_info['post_len'] = post_path_length_list
+	else:
+		#down_stream has already found for another path with the same end node and position
+		post_sequence_list = seq_info['post_seq']
+		post_path_list = seq_info['post_path']
+		post_path_length_list = seq_info['post_len']
+
 	#combine path_info from pre and post
 	logging.debug('Running generate_node_range_coverage '+output_name+' ...')
 	path_length_list = generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos,
@@ -1614,10 +1552,7 @@ def extract_neighborhood_sequence(gfa_file, length, node_list, orientation_list,
 										post_sequence_list, pre_path_list,
 										post_path_list, path_length_list,
 										output_name, 'same')
-	# sequence_list, path_list = generate_sequence_path(myGraph,node_list,
-	# 									orientation_list, start_pos, end_pos,
-	# 									pre_sequence_list, post_sequence_list,
-	# 									pre_path_list, post_path_list, 'same')
+
 
 	if not BOTH_DIR_RECURSIVE:
 		#Find the sequences and paths for the reverse of the path provided by bandage+blast for AMR gene
@@ -1648,9 +1583,8 @@ def extract_neighborhood_sequence(gfa_file, length, node_list, orientation_list,
 			shutil.rmtree(compare_dir)
 		except OSError as e:
 			logging.error("Error: %s - %s." % (e.filename, e.strerror))
-			#print("Error: %s - %s." % (e.filename, e.strerror))
 
-	return sequence_list, path_list, path_info_list
+	return sequence_list, path_list, path_info_list, seq_info
 
 def find_amr_related_nodes(amr_file, gfa_file, output_dir, bandage_path = BANDAGE_PATH,
 							threshold =  95, output_pre = '', align_file = ''):
@@ -1680,31 +1614,428 @@ def find_amr_related_nodes(amr_file, gfa_file, output_dir, bandage_path = BANDAG
 		output_name=output_dir+output_pre+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 		if os.path.isfile(output_name+'.tsv'):
 			os.remove(output_name+'.tsv')
-		command = bandage_path +' querypaths '+gfa_file+' '+amr_file+' '+output_name
+		command = bandage_path +' querypaths '+gfa_file+' '+amr_file+' '+output_name + ' --pathnodes 50'
 		os.system(command)
 		align_file = output_name+".tsv"
 	#Process the output tsv file
-	paths_info = []
-	found = False
-	logging.debug("Reading align_file = "+align_file+" ...")
-	with open(align_file) as tsvfile:
-		reader = csv.reader(tsvfile, delimiter='\t')
-		#skip the header
-		next(reader)
-		for row in reader:
-			coverage = float(re.sub('[%]','',row[3]))
-			identity = float(re.sub('[%]','',row[5]))
-			if int(coverage) >= threshold and int(identity)>=threshold:
-				#print('AMR '+amr_name+' was found!')
-				found = True
-				cell_info = row[1].strip()
-				nodes, orientation_list, start_pos, end_pos = extract_nodes_in_path(cell_info)
-				path_info = {'nodes':nodes, 'orientations':orientation_list,
-								'start_pos':start_pos, 'end_pos':end_pos}
-				paths_info.append(path_info)
+	found, paths_info = read_path_info_from_align_file(output_name+".tsv", threshold)
+	# paths_info = []
+	# found = False
+	# logging.debug("Reading align_file = "+align_file+" ...")
+	# with open(align_file) as tsvfile:
+	# 	reader = csv.reader(tsvfile, delimiter='\t')
+	# 	#skip the header
+	# 	next(reader)
+	# 	for row in reader:
+	# 		coverage = float(re.sub('[%]','',row[3]))
+	# 		identity = float(re.sub('[%]','',row[5]))
+	# 		if int(coverage) >= threshold and int(identity)>=threshold:
+	# 			found = True
+	# 			cell_info = row[1].strip()
+	# 			nodes, orientation_list, start_pos, end_pos = extract_nodes_in_path(cell_info)
+	# 			path_info = {'nodes':nodes, 'orientations':orientation_list,
+	# 							'start_pos':start_pos, 'end_pos':end_pos}
+	# 			paths_info.append(path_info)
 	# if not found:
 	# 	os.remove(output_name+'.tsv')
 	return found, paths_info
+
+# def check_if_similar_ng_extractions_exist(amr_path_info, amr_paths_info):
+# 	"""
+# 	"""
+# 	found_up_stream = False
+# 	found_down_stream = False
+# 	similar_path = {'up_stream':None, 'down_stream':None}
+# 	new_first_node = amr_path_info['nodes'][0]+amr_path_info['orientations'][0]
+# 	new_last_node = amr_path_info['nodes'][-1]+amr_path_info['orientations'][-1]
+# 	new_start_pos = amr_path_info['start_pos']
+# 	new_end_pos = amr_path_info['end_pos']
+# 	for i, path_info in enumerate(amr_paths_info):
+# 		start_pos = path_info['start_pos']
+# 		end_pos = path_info['end_pos']
+# 		# if len(amr_path_info['nodes'])!=len(path_info) or (start_pos!=new_start_pos and end_pos!=new_end_pos):
+# 		# 	continue
+# 		if start_pos!=new_start_pos and end_pos!=new_end_pos:
+# 			continue
+# 		first_node = path_info['nodes'][0]+path_info['orientations'][0]
+# 		last_node = path_info['nodes'][-1]+path_info['orientations'][-1]
+# 		if len(path_info)==1 and len(amr_path_info)==1 and new_first_node==first_node:
+# 			logging.error('there shouldnt be two separate amr paths with the same single node!')
+# 			import pdb; pdb.set_trace()
+# 		if new_first_node==first_node and new_start_pos==start_pos and\
+# 			new_last_node==last_node and new_end_pos==end_pos:
+# 			return {'up_stream':i, 'down_stream':i}
+# 		elif not found_up_stream and new_first_node==first_node and new_start_pos==start_pos:
+# 			similar_path['up_stream']=i
+# 			found_up_stream = True
+# 		elif not found_down_stream and new_last_node==last_node and new_end_pos==end_pos:
+# 			similar_path['down_stream']=i
+# 			found_dwon_stream = True
+#
+# 	return similar_path
+
+def check_if_similar_ng_extractions_exist(amr_path_info, amr_paths_info):
+	"""
+	"""
+	found_up_stream = False
+	found_down_stream = False
+	similar_path = {'up_stream':-1, 'down_stream':-1}
+	new_first_node = amr_path_info['nodes'][0]+amr_path_info['orientations'][0]
+	new_last_node = amr_path_info['nodes'][-1]+amr_path_info['orientations'][-1]
+	new_start_pos = amr_path_info['start_pos']
+	new_end_pos = amr_path_info['end_pos']
+	for i, path_info in enumerate(amr_paths_info):
+		start_pos = path_info['start_pos']
+		end_pos = path_info['end_pos']
+		# if len(amr_path_info['nodes'])!=len(path_info) or (start_pos!=new_start_pos and end_pos!=new_end_pos):
+		# 	continue
+		if start_pos!=new_start_pos and end_pos!=new_end_pos:
+			continue
+		first_node = path_info['nodes'][0]+path_info['orientations'][0]
+		last_node = path_info['nodes'][-1]+path_info['orientations'][-1]
+		if len(path_info)==1 and len(amr_path_info)==1 and new_first_node==first_node:
+			logging.error('there shouldnt be two separate amr paths with the same single node!')
+			import pdb; pdb.set_trace()
+		if new_first_node==first_node and new_start_pos==start_pos and\
+			new_last_node==last_node and new_end_pos==end_pos:
+			return {'up_stream':i, 'down_stream':i}
+
+	for i, path_info in enumerate(amr_paths_info):
+		start_pos = path_info['start_pos']
+		end_pos = path_info['end_pos']
+		if start_pos!=new_start_pos and end_pos!=new_end_pos:
+			continue
+		first_node = path_info['nodes'][0]+path_info['orientations'][0]
+		last_node = path_info['nodes'][-1]+path_info['orientations'][-1]
+		if not found_up_stream and new_first_node==first_node and new_start_pos==start_pos:
+			similar_path['up_stream']=i
+			found_up_stream = True
+		elif not found_down_stream and new_last_node==last_node and new_end_pos==end_pos:
+			similar_path['down_stream']=i
+			found_dwon_stream = True
+		if found_up_stream and found_down_stream:
+			return similar_path
+
+	return similar_path
+
+# def neighborhood_sequence_extraction(gfa_file, length, output_dir,
+# 									bandage = BANDAGE_PATH, threshold = 95,
+# 									seq_name_prefix = 'ng_sequences_',
+# 									#output_name = 'ng_sequences',
+# 									path_node_threshold = 10 ,
+# 									path_seq_len_percent_threshod = 90,
+# 									max_kmer_size = 55,
+# 									assembler = Assembler_name.metaspades,
+# 									amr_seq_align_file = ''):
+# 	"""
+# 	The core function to extract the sequences/paths preceding and following the AMR sequence
+# 	in the assembly graph
+# 	Parameters:
+# 		amr_file:	the FASTA file containing the AMR sequence
+# 		gfa_file:	the GFA file containing the assembly graph
+# 		length:		the length of all sequences around the AMR gene to be extracted
+# 		output_dir: the output directory to store files
+# 		bandage: 	the address of bandage executation file
+# 		threshold: 	threshold for identity and coverage
+# 		output_name: used for naming output file
+# 		path_node_threshold: the threshold used for recursive pre_path and post_path
+# 			search as long as the length of the path is less that this threshold
+# 		path_seq_len_percent_threshod: the threshold used for recursive pre_seq and
+# 			post_seq until we have this percentage of the required length
+# 			after which we just extract from the longest neighbor.
+# 	Return:
+# 		the name of file containing the list of extracted sequences/paths
+# 	"""
+# 	amr_file, align_file = amr_seq_align_file
+# 	logging.debug('amr_file = '+amr_file+'\t align_file = '+align_file)
+# 	output_name = seq_name_prefix +os.path.splitext(os.path.basename(amr_file))[0]
+# 	if not os.path.exists(output_dir+'alignment_files/'):
+# 		try:
+# 			os.makedirs(output_dir+'alignment_files/')
+# 		except OSError as exc:
+# 			if exc.errno != errno.EEXIST:
+# 				raise
+# 			pass
+# 	remained_len_thr = length - (length*path_seq_len_percent_threshod/100.0)
+# 	#find all AMR paths in the assembly graph
+# 	_, amr_paths_info = find_amr_related_nodes(amr_file, gfa_file, output_dir+'alignment_files/',
+# 											bandage, threshold, output_name, align_file)
+# 	seq_output_dir = output_dir+'sequences/'
+# 	if not os.path.exists(seq_output_dir):
+# 		try:
+# 			os.makedirs(seq_output_dir)
+# 		except OSError as exc:
+# 			if exc.errno != errno.EEXIST:
+# 				raise
+# 			pass
+# 	seq_file = seq_output_dir+output_name+'_'+str(length)+'_'+\
+# 	datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt'
+# 	#csv file for path_info
+# 	if not os.path.exists(output_dir+'paths_info/'):
+# 		try:
+# 			os.makedirs(output_dir+'paths_info/')
+# 		except OSError as exc:
+# 			if exc.errno != errno.EEXIST:
+# 				raise
+# 			pass
+# 	paths_info_file = output_dir+'paths_info/'+output_name+'_'+str(length)+'_'+\
+# 	datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
+# 	with open(paths_info_file,'a') as fd:
+# 		writer = csv.writer(fd)
+# 		writer.writerow(['sequence', 'node', 'coverage', 'start', 'end'])
+# 	logging.debug("Calling extract_neighborhood_sequence for "+os.path.basename(amr_file)+" ...")
+# 	#Extract the sequenc of AMR neighborhood
+# 	seq_counter = 0
+# 	sequence_lists = []
+# 	path_lists = []
+# 	path_info_lists = []
+# 	checked_amr_paths_info = []
+# 	seq_info_list = []
+# 	for i, amr_path_info in enumerate(amr_paths_info):
+# 		seq_info = {'pre_seq':None, 'pre_path':None, 'pre_len':None,
+# 			'post_seq':None, 'post_path':None, 'post_len':None}
+# 		similar_path = check_if_similar_ng_extractions_exist(amr_path_info, checked_amr_paths_info)
+# 		if similar_path['up_stream'] and similar_path['up_stream']==similar_path['down_stream']:
+# 			#no need to save any information for this path
+# 			continue
+# 		elif not similar_path['up_stream'] and not similar_path['down_stream']:
+# 			sequence_list, path_list, path_info_list, seq_info =\
+# 								extract_neighborhood_sequence(gfa_file, length,
+# 								amr_path_info, remained_len_thr, path_node_threshold,
+# 								output_name, max_kmer_size, seq_info, assembler)
+# 		elif similar_path['up_stream'] and similar_path['down_stream']:
+# 			#we have extracted both its upstream and downstream but in different paths
+# 			u_id = similar_path['up_stream']
+# 			d_id = similar_path['down_stream']
+# 			seq_info = {'pre_seq':seq_info_list[u_id]['pre_sequence_list'],
+# 						'pre_path':seq_info_list[u_id]['pre_path_list'],
+# 						'pre_len':seq_info_list[u_id]['pre_path_length_list'],
+# 						'post_seq':seq_info_list[u_id]['post_sequence_list'],
+# 						'post_path':seq_info_list[u_id]['post_path_list'],
+# 						'post_len':seq_info_list[u_id]['post_path_length_list']}
+# 			sequence_list, path_list, path_info_list, seq_info =\
+# 								extract_neighborhood_sequence(gfa_file, length,
+# 								amr_path_info, remained_len_thr, path_node_threshold,
+# 								output_name, max_kmer_size, seq_info, assembler)
+# 		elif similar_path['up_stream']:
+# 			#we need to extract its downstream
+# 			u_id = similar_path['up_stream']
+# 			seq_info['pre_seq'] = seq_info_list[u_id]['pre_sequence_list']
+# 			seq_inf['pre_path'] = seq_info_list[u_id]['pre_path_list']
+# 			seq_infp['pre_len'] = seq_info_list[u_id]['pre_path_length_list']
+# 			sequence_list, path_list, path_info_list, seq_info =\
+# 								extract_neighborhood_sequence(gfa_file, length,
+# 								amr_path_info, remained_len_thr, path_node_threshold,
+# 								output_name, max_kmer_size, seq_info, assembler)
+#
+# 		elif similar_path['down_stream']:
+# 			#we need to extract its upstream
+# 			d_id = similar_path['down_stream']
+# 			seq_info['post_seq'] = seq_info_list[d_id]['post_sequence_list']
+# 			seq_info['post_path'] = seq_info_list[d_id]['post_path_list']
+# 			seq_info['post_len'] = seq_info_list[d_id]['post_path_length_list']
+# 			sequence_list, path_list, path_info_list, seq_info =\
+# 								extract_neighborhood_sequence(gfa_file, length,
+# 								amr_path_info, remained_len_thr, path_node_threshold,
+# 								output_name, max_kmer_size, seq_info, assembler)
+# 		seq_info_list.append(seq_info)
+# 		sequence_lists.append(sequence_list)
+# 		path_lists.append(path_list)
+# 		path_info_lists.append(path_info_list)
+# 		checked_amr_paths_info.append(amr_path_info)
+# 		if not sequence_list:
+# 			continue
+# 		write_sequences_to_file(sequence_list, path_list, seq_file)
+# 		logging.info("NOTE: The list of neighborhood sequences (extracted from assembly graph)\
+# 	 		has been stroed in " + seq_file)
+# 		seq_counter = write_paths_info_to_file(path_info_list, paths_info_file, seq_counter)
+# 	return seq_file, paths_info_file
+
+def order_path_nodes(path_nodes, amr_file, out_dir, threshold = 90):
+	"""
+	"""
+	# command = 'makeblastdb -in '+amr_file +' -parse_seqids -dbtype nucl'
+	# os.system(command)
+	path_nodes_info = []
+	no_path_nodes = []
+	for i, node in enumerate(path_nodes):
+		node_info_list = []
+		#write the sequence into a fasta file
+		query_file = create_fasta_file(node.sequence, out_dir, comment = ">"+node.name+"\n", file_name = 'query')
+		#run blast query for alignement
+		blast_file_name = out_dir+'blast.csv'
+		command = 'blastn -query '+query_file+' -subject '+amr_file+\
+			' -task blastn -outfmt 10 -max_target_seqs 10 -evalue 0.5 -perc_identity '+\
+			str(threshold)+' > '+ blast_file_name
+		os.system(command)
+		with open(blast_file_name, 'r') as file1:
+			myfile = csv.reader(file1)
+			for row in myfile:
+				identity=int(float(row[2]))
+				coverage = int(float(row[3])/len(node.sequence)*100)
+				if identity>=threshold and coverage>=threshold:
+					node_info = {'name':node.name, 'c_start':int(row[8]), 'c_end':int(row[9])}
+					node_info_list.append(node_info)
+		if not node_info_list:
+			no_path_nodes.append(i)
+			logging.error(node.name+' was not found in the sequence of '+amr_file)
+		path_nodes_info.append(node_info_list)
+	#order nodes
+	start_list = []
+	orientations = []
+	for path_info in path_nodes_info:
+		if len(path_info)>0:
+			if path_info[0]['c_start'] < path_info[0]['c_end']:
+				start_list.append(path_info[0]['c_start'])
+				orientations.append('+')
+			else:
+				start_list.append(path_info[0]['c_end'])
+				orientations.append('-')
+		else:
+			start_list.append(-1)
+			orientations.append('/')
+	# start_list =[e[0]['c_start'] if len(e)>0 else -1 for e in path_nodes_info ]
+	sorted_indeces = sorted(range(len(start_list)), key=lambda k: start_list[k])
+	sorted_path_nodes = []
+	sorted_orientations = []
+	for index in sorted_indeces:
+		if index not in no_path_nodes:
+			sorted_path_nodes.append(path_nodes[index])
+			sorted_orientations.append(orientations[index])
+
+	return sorted_path_nodes, sorted_orientations
+
+def extract_amr_align_from_file(gfa_file):
+	"""
+	"""
+	myGraph = gfapy.Gfa.from_file(gfa_file)
+	path_nodes = []
+	for segment in myGraph.segments:
+		if segment.name.endswith('_start'):
+			path_nodes.append(segment)
+	return path_nodes
+
+def combine_nodes_orientations_metacherchant(node_list, orientations):
+	"""
+	"""
+	#add direction to nodes representing AMR gene
+	node_orient_list = [node + orient +'?' for node, orient in zip(node_list, orientations)]
+	#annotate the path representing AMR gene
+	node_orient_list[0]='['+node_orient_list[0]
+	node_orient_list[-1]=node_orient_list[-1]+']'
+	return node_orient_list
+
+def combine_pre_post_metacherchant(pre_sequence_list, pre_path_list, post_sequence_list,
+									post_path_list, seq_file, amr_seq, node_orient_list,
+									compare_dir):
+	"""
+	"""
+	sequence_list = []
+	path_list = []
+	counter = 0
+	for pre_seq, pre_path in zip(pre_sequence_list, pre_path_list):
+		for post_seq, post_path in zip(post_sequence_list, post_path_list):
+			sequence = pre_seq.upper()+ amr_seq[:-1].lower() +post_seq.upper()
+			path = pre_path +node_orient_list + post_path
+			index, found = similar_sequence_exits(sequence_list, sequence, compare_dir)
+			if not found:
+				sequence_list.append(sequence)
+				path_list.append(path)
+			elif index>=0:
+				sequence_list[index] = sequence
+				path_list[index] = path
+			counter+=1
+	write_sequences_to_file(sequence_list, path_list, seq_file)
+
+def ng_seq_extraction_metacherchant(gfa_file, length, output_dir,path_thr,
+									remained_len_thr, output_name,max_kmer_size,
+									seq_file, assembler = Assembler_name.metacherchant,
+									threshold = 90, amr_file = ''):
+	"""
+	Return:
+		the name of file containing the list of extracted sequences/paths
+	"""
+	with open(output_dir+"metacherchant_no_path.txt", 'a') as no_path_file:
+		no_path_file.write(amr_file+'\n')
+	try:
+		myGraph = gfapy.Gfa.from_file(gfa_file)
+	except Exception as e:
+		logging.error(e)
+		return ''
+	#find nodes ending at _start as the nodes that create amr_path
+	path_nodes = extract_amr_align_from_file(gfa_file)
+	#find the order of these nodes in the amr path
+	ordered_path_nodes, orientations = order_path_nodes(path_nodes, amr_file,
+									output_dir+'alignment_files/', threshold)
+	node_list = [e.name for e in ordered_path_nodes]
+
+	last_segment = ordered_path_nodes[-1]
+	start_pos = 1
+	end_pos = len(str(last_segment.sequence))
+
+	logging.debug('last_segment = '+last_segment.name+' start_pos = '+str(start_pos)+' end_pos= '+str(end_pos))
+	#create a temporaty directory
+	compare_dir = 'temp_comparison_'+output_name+'/'
+	if not os.path.exists(compare_dir):
+		try:
+			os.makedirs(compare_dir)
+		except OSError as exc:
+			if exc.errno != errno.EEXIST:
+				raise
+			pass
+	amr_seq = retrieve_AMR(amr_file)
+
+	#Process with the orientation found based on the alignment and ordering
+	node_orient_list = combine_nodes_orientations_metacherchant(node_list, orientations)
+	#Find the sequences and paths for the path for AMR gene
+	#Find the sequence before the AMR gene
+	logging.debug('Running extract_pre_sequence '+output_name+' ...')
+	pre_sequence_list, pre_path_list, pre_path_length_list =\
+	 							extract_pre_sequence(ordered_path_nodes[0],
+								orientations[0], node_list, length, start_pos,
+								compare_dir, remained_len_thr, path_thr)
+	#Find the sequence after the AMR gene
+	logging.debug('Running extract_post_sequence '+output_name+' ...')
+	post_sequence_list, post_path_list, post_path_length_list =\
+								extract_post_sequence(last_segment,
+								orientations[-1], node_list, length, end_pos,
+								compare_dir, remained_len_thr, path_thr)
+	combine_pre_post_metacherchant(pre_sequence_list, pre_path_list, post_sequence_list,
+										post_path_list, seq_file, amr_seq, node_orient_list,
+										compare_dir)
+
+	#Process with the reverse of the orientation found based on the alignment and ordering
+	orientations[0]=reverse_sign(orientations[0])
+	if len(orientations)>1:
+		orientations[-1]=reverse_sign(orientations[-1])
+	#add direction to nodes representing AMR gene
+	node_orient_list = combine_nodes_orientations_metacherchant(node_list, orientations)
+	#Find the sequences and paths for the path for AMR gene
+	#Find the sequence before the AMR gene
+	logging.debug('Running extract_pre_sequence '+output_name+' ...')
+	pre_sequence_list, pre_path_list, pre_path_length_list =\
+	 							extract_pre_sequence(ordered_path_nodes[0],
+								orientations[0], node_list, length, start_pos,
+								compare_dir, remained_len_thr, path_thr)
+	#Find the sequence after the AMR gene
+	logging.debug('Running extract_post_sequence '+output_name+' ...')
+	post_sequence_list, post_path_list, post_path_length_list =\
+								extract_post_sequence(last_segment,
+								orientations[-1], node_list, length, end_pos,
+								compare_dir, remained_len_thr, path_thr)
+	combine_pre_post_metacherchant(pre_sequence_list, pre_path_list, post_sequence_list,
+									post_path_list, seq_file, amr_seq, node_orient_list,
+									compare_dir)
+	logging.info("NOTE: The list of neighborhood sequences (extracted from assembly graph)\
+	 		has been stroed in " + seq_file)
+	# delete the temp folder
+	if os.path.exists(compare_dir):
+		try:
+			shutil.rmtree(compare_dir)
+		except OSError as e:
+			logging.error("Error: %s - %s." % (e.filename, e.strerror))
+
+	return seq_file
 
 def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 									bandage = BANDAGE_PATH, threshold = 95,
@@ -1713,8 +2044,8 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 									path_node_threshold = 10 ,
 									path_seq_len_percent_threshod = 90,
 									max_kmer_size = 55,
-									assembler = Assembler_name.meta_spades,
-									amr_seq_align_file = ''):
+									assembler = Assembler_name.metaspades,
+									amr_seq_align_info = ''):
 	"""
 	The core function to extract the sequences/paths preceding and following the AMR sequence
 	in the assembly graph
@@ -1734,20 +2065,10 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 	Return:
 		the name of file containing the list of extracted sequences/paths
 	"""
-	amr_file, align_file = amr_seq_align_file
-	logging.debug('amr_file = '+amr_file+'\t align_file = '+align_file)
+	amr_file, amr_paths_info = amr_seq_align_info
+	logging.debug('amr_file = '+amr_file)
 	output_name = seq_name_prefix +os.path.splitext(os.path.basename(amr_file))[0]
-	if not os.path.exists(output_dir+'alignment_files/'):
-		try:
-			os.makedirs(output_dir+'alignment_files/')
-		except OSError as exc:
-			if exc.errno != errno.EEXIST:
-				raise
-			pass
 	remained_len_thr = length - (length*path_seq_len_percent_threshod/100.0)
-	#find all AMR paths in the assembly graph
-	_, amr_paths_info = find_amr_related_nodes(amr_file, gfa_file, output_dir+'alignment_files/',
-											bandage, threshold, output_name, align_file)
 	seq_output_dir = output_dir+'sequences/'
 	if not os.path.exists(seq_output_dir):
 		try:
@@ -1758,6 +2079,31 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 			pass
 	seq_file = seq_output_dir+output_name+'_'+str(length)+'_'+\
 	datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt'
+
+	if not amr_paths_info:
+		if not os.path.exists(output_dir+'alignment_files/'):
+			try:
+				os.makedirs(output_dir+'alignment_files/')
+			except OSError as exc:
+				if exc.errno != errno.EEXIST:
+					raise
+				pass
+		#remained_len_thr = length - (length*path_seq_len_percent_threshod/100.0)
+		#find all AMR paths in the assembly graph
+		found, amr_paths_info = find_amr_related_nodes(amr_file, gfa_file, output_dir+'alignment_files/',
+												bandage, threshold, output_name, '')
+		if not found:
+			if assembler==Assembler_name.metacherchant:
+				logging.error("no alignment was found for "+amr_file)
+				return ng_seq_extraction_metacherchant(gfa_file, length, output_dir,
+												path_node_threshold,remained_len_thr,
+												output_name,max_kmer_size, seq_file,
+												assembler, threshold, amr_file), ''
+			else:
+				logging.error("no alignment was found for "+amr_file)
+				#import pdb; pdb.set_trace()
+				return '', ''
+
 	#csv file for path_info
 	if not os.path.exists(output_dir+'paths_info/'):
 		try:
@@ -1774,18 +2120,68 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 	logging.debug("Calling extract_neighborhood_sequence for "+os.path.basename(amr_file)+" ...")
 	#Extract the sequenc of AMR neighborhood
 	seq_counter = 0
+	sequence_lists = []
+	path_lists = []
+	path_info_lists = []
+	checked_amr_paths_info = []
+	seq_info_list = []
 	for i, amr_path_info in enumerate(amr_paths_info):
-		node_list = amr_path_info['nodes']
-		orientation_list = amr_path_info['orientations']
-		start_pos = amr_path_info['start_pos']
-		end_pos = amr_path_info['end_pos']
-		sequence_list, path_list, path_info_list =\
-							extract_neighborhood_sequence(gfa_file, length,
-							node_list, orientation_list, start_pos, end_pos,
-							remained_len_thr, path_node_threshold, output_name,
-							max_kmer_size, assembler)
+		seq_info = {'pre_seq':None, 'pre_path':None, 'pre_len':None,
+			'post_seq':None, 'post_path':None, 'post_len':None}
+		similar_path = check_if_similar_ng_extractions_exist(amr_path_info, checked_amr_paths_info)
+		#logging.info('amr_path_info: '+str(amr_path_info)+' checked_amr_paths_info: '+str(checked_amr_paths_info)+' similar_path'+str(similar_path))
+		if similar_path['up_stream']>-1 and similar_path['up_stream']==similar_path['down_stream']:
+			#no need to save any information for this path
+			continue
+		elif similar_path['up_stream']==-1 and similar_path['down_stream']==-1:
+			sequence_list, path_list, path_info_list, seq_info =\
+								extract_neighborhood_sequence(gfa_file, length,
+								amr_path_info, remained_len_thr, path_node_threshold,
+								output_name, max_kmer_size, seq_info, assembler)
+		elif similar_path['up_stream']>-1 and similar_path['down_stream']>-1:
+			#we have extracted both its upstream and downstream but in different paths
+			u_id = similar_path['up_stream']
+			d_id = similar_path['down_stream']
+			seq_info = {'pre_seq':seq_info_list[u_id]['pre_seq'],
+						'pre_path':seq_info_list[u_id]['pre_path'],
+						'pre_len':seq_info_list[u_id]['pre_len'],
+						'post_seq':seq_info_list[d_id]['post_seq'],
+						'post_path':seq_info_list[d_id]['post_path'],
+						'post_len':seq_info_list[d_id]['post_len']}
+			sequence_list, path_list, path_info_list, seq_info =\
+								extract_neighborhood_sequence(gfa_file, length,
+								amr_path_info, remained_len_thr, path_node_threshold,
+								output_name, max_kmer_size, seq_info, assembler)
+		elif similar_path['up_stream']>-1:
+			#we need to extract its downstream
+			u_id = similar_path['up_stream']
+			seq_info['pre_seq'] = seq_info_list[u_id]['pre_seq']
+			seq_info['pre_path'] = seq_info_list[u_id]['pre_path']
+			seq_info['pre_len'] = seq_info_list[u_id]['pre_len']
+			sequence_list, path_list, path_info_list, seq_info =\
+								extract_neighborhood_sequence(gfa_file, length,
+								amr_path_info, remained_len_thr, path_node_threshold,
+								output_name, max_kmer_size, seq_info, assembler)
+
+		elif similar_path['down_stream']>-1:
+			#we need to extract its upstream
+			d_id = similar_path['down_stream']
+			seq_info['post_seq'] = seq_info_list[d_id]['post_seq']
+			seq_info['post_path'] = seq_info_list[d_id]['post_path']
+			seq_info['post_len'] = seq_info_list[d_id]['post_len']
+			sequence_list, path_list, path_info_list, seq_info =\
+								extract_neighborhood_sequence(gfa_file, length,
+								amr_path_info, remained_len_thr, path_node_threshold,
+								output_name, max_kmer_size, seq_info, assembler)
 		if not sequence_list:
 			continue
+		seq_info_list.append(seq_info)
+		sequence_lists.append(sequence_list)
+		path_lists.append(path_list)
+		path_info_lists.append(path_info_list)
+		checked_amr_paths_info.append(amr_path_info)
+		# if not sequence_list:
+		# 	continue
 		write_sequences_to_file(sequence_list, path_list, seq_file)
 		logging.info("NOTE: The list of neighborhood sequences (extracted from assembly graph)\
 	 		has been stroed in " + seq_file)
@@ -1795,23 +2191,22 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 def neighborhood_graph_extraction(gfa_file, distance, output_dir,
 								bandage = BANDAGE_PATH, threshold = 95,
 								seq_name_prefix = 'ng_subgraph',
-								amr_seq_align_file = ''):
+								amr_seq_align_info = ''):
 	"""
 	"""
-	amr_file, align_file = amr_seq_align_file
+	amr_file, paths_info = amr_seq_align_info
 	logging.debug('amr_file = '+amr_file+'\t align_file = '+align_file)
 	output_name = seq_name_prefix +os.path.splitext(os.path.basename(amr_file))[0]
-	#Retrieve the AMR gene sequence
-	amr_seq = retrieve_AMR(amr_file)
-	if not os.path.exists(output_dir+'alignment_files/'):
-		try:
-			os.makedirs(output_dir+'alignment_files/')
-		except OSError as exc:
-			if exc.errno != errno.EEXIST:
-				raise
-			pass
-	_, paths_info = find_amr_related_nodes(amr_file, gfa_file, output_dir+'alignment_files/',
-											bandage, threshold, output_name, align_file)
+	if not paths_info:
+		if not os.path.exists(output_dir+'alignment_files/'):
+			try:
+				os.makedirs(output_dir+'alignment_files/')
+			except OSError as exc:
+				if exc.errno != errno.EEXIST:
+					raise
+				pass
+		_, paths_info = find_amr_related_nodes(amr_file, gfa_file, output_dir+'alignment_files/',
+												bandage, threshold, output_name, '')
 
 	#Find neighbourhood of found nodes AND create a new graph contating the target subgraph
 	subgraph_file_list =[]
@@ -1829,6 +2224,44 @@ def neighborhood_graph_extraction(gfa_file, distance, output_dir,
 		subgraph_file_list.append(subgraph_file)
 
 	return subgraph_file_list
+
+# def neighborhood_graph_extraction(gfa_file, distance, output_dir,
+# 								bandage = BANDAGE_PATH, threshold = 95,
+# 								seq_name_prefix = 'ng_subgraph',
+# 								amr_seq_align_file = ''):
+# 	"""
+# 	"""
+# 	amr_file, align_file = amr_seq_align_file
+# 	logging.debug('amr_file = '+amr_file+'\t align_file = '+align_file)
+# 	output_name = seq_name_prefix +os.path.splitext(os.path.basename(amr_file))[0]
+# 	#Retrieve the AMR gene sequence
+# 	amr_seq = retrieve_AMR(amr_file)
+# 	if not os.path.exists(output_dir+'alignment_files/'):
+# 		try:
+# 			os.makedirs(output_dir+'alignment_files/')
+# 		except OSError as exc:
+# 			if exc.errno != errno.EEXIST:
+# 				raise
+# 			pass
+# 	_, paths_info = find_amr_related_nodes(amr_file, gfa_file, output_dir+'alignment_files/',
+# 											bandage, threshold, output_name, align_file)
+#
+# 	#Find neighbourhood of found nodes AND create a new graph contating the target subgraph
+# 	subgraph_file_list =[]
+# 	for i, path_info in enumerate(paths_info):
+# 		node_list = path_info['nodes']
+# 		#Find the list of segments and edges
+# 		myGraph, segment_list, edge_list =extract_subgraph(node_list, distance, gfa_file)
+# 		#Generate a graph with the lists of segments and edges
+# 		subGraph = create_graph(myGraph, segment_list, edge_list)
+# 		#write the subgraph in a GFA file
+# 		subgraph_file = output_dir+output_name+'_'+str(distance)+'_'+str(i+1)+'_'+\
+# 			datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.gfa'
+# 		subGraph.to_file(subgraph_file)
+# 		logging.info("NOTE: The extracted subgraph has been stored in " + subgraph_file)
+# 		subgraph_file_list.append(subgraph_file)
+#
+# 	return subgraph_file_list
 
 if __name__=="__main__":
 
@@ -1851,13 +2284,15 @@ if __name__=="__main__":
 
 	if not args.amr:
 		logging.error('please enter the path for the AMR gene file')
-		#print('please enter the path for the AMR gene file')
+		import pdb; pdb.set_trace()
 		sys.exit()
 
 	if not args.gfa:
 		logging.error('please enter the path for the assembly file')
-		#print('please enter the path for the assembly file')
+		import pdb; pdb.set_trace()
 		sys.exit()
 
-	neighborhood_graph_extraction(arg.amr,args.gfa, args.distance, args.output_dir)
-	neighborhood_sequence_extraction(args.gfa, args.length, args.output_dir, amr_file = (arg.amr,''))
+	neighborhood_graph_extraction(arg.amr,args.gfa, args.distance, args.output_dir,
+								amr_seq_align_info = (arg.amr,''))
+	neighborhood_sequence_extraction(args.gfa, args.length, args.output_dir,
+								amr_seq_align_info = (arg.amr,''))
