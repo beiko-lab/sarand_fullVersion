@@ -1,15 +1,32 @@
 
+"""
+File:		amr_neighborhood_in_contigs.py
+Aythor:		Somayeh Kafaie
+Date:		March 2021
+Purpose:	To find the neighborhood of AMRs in a contig file
+
+To run:
+
+"""
+
+################################################################################
+
 import os
 import re
 import argparse
 import datetime
 import csv
 from csv import DictReader
+import logging
+import pandas as pd
 
-from utils import extract_files, retrieve_AMR
+from utils import extract_files, retrieve_AMR, read_ref_annotations_from_db,\
+		extract_up_down_from_csv_file, seqs_annotation_are_identical,\
+		similar_seq_annotation_already_exist, split_up_down_info, annotate_sequence,\
+		retreive_original_amr_name, extract_name_from_file_name, restricted_amr_name_from_modified_name
 from extract_neighborhood import extract_amr_neighborhood_in_ref_genome
-from full_pipeline import annotate_sequence, split_up_down_info, similar_seq_annotation_already_exist,\
-						extract_up_down_from_csv_file, seqs_annotation_are_identical
+
+NOT_FOUND_FILE = 'not_found_amrs_in_contigs.txt'
 
 def read_ref_neighborhood_annotation(annotation_file):
 	"""
@@ -49,7 +66,7 @@ def read_ref_neighborhood_annotation(annotation_file):
 				ref_down_info_list.append(down_info)
 	return ref_amr_info_list, ref_up_info_list, ref_down_info_list
 
-def extract_seq_neighborhood_and_annotate(amr_file, amr_name, seq_length, contig_file,
+def extract_seq_neighborhood_and_annotate(amr_seq, amr_name, seq_length, contig_file,
 								amr_threshold, contig_dir, prokka_prefix, use_RGI,
 								RGI_include_loose, annotation_file_name):
 	"""
@@ -59,8 +76,8 @@ def extract_seq_neighborhood_and_annotate(amr_file, amr_name, seq_length, contig
 	down_info_list = []
 	amr_info_list = []
 	seq_info_list = []
-	amr_seq = retrieve_AMR(amr_file)
-	seq_file_name = contig_dir+'/contig_sequences_'+amr_name+'_'+\
+	restricted_amr_name = restricted_amr_name_from_modified_name(amr_name)
+	seq_file_name = contig_dir+'/contig_sequences_'+restricted_amr_name+'_'+\
 		str(seq_length)+'_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt'
 	seq_file = open(seq_file_name, 'w')
 	#import pdb; pdb.set_trace()
@@ -93,9 +110,9 @@ def extract_seq_neighborhood_and_annotate(amr_file, amr_name, seq_length, contig
 				down_info_list.append(down_info)
 			amr_info_list.append(amr_info)
 		else:
-			print("ERROR: no target amr was found in the contig sequence")
-			return [], [], []
+			logging.error("no target amr was found in this contig sequence")
 			#import pdb; pdb.set_trace()
+			return [], [], [], []
 		with open(annotation_file_name, 'a') as fd:
 			writer = csv.writer(fd)
 			for gene_info in seq_info:
@@ -108,21 +125,35 @@ def extract_seq_neighborhood_and_annotate(amr_file, amr_name, seq_length, contig
 									gene_info['family'], gene_info['target_amr']])
 		seq_info_list.append(seq_info)
 	seq_file.close()
-	print("NOTE: The list of neighborhood sequences in contigs has\
+	if not seq_list:
+		logging.info(amr_name+' was not found in the contig list!')
+	else:
+		logging.info("NOTE: The list of neighborhood sequences in contigs has\
 	 		been stroed in " + seq_file_name)
 	return up_info_list, down_info_list, amr_info_list, seq_info_list
 
 def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_list,
 								amr_info_list, ref_up_info_list, ref_down_info_list,
-								ref_amr_info_list):
+								ref_amr_info_list, found_file):
 	"""
 	"""
 	ref_len =  len(ref_up_info_list)+len(ref_down_info_list)
+	#if amr was not found in the ref genomes
 	if ref_len==0 and len(ref_amr_info_list)==0:
 		with open(summary_file,'a') as fd:
 			writer = csv.writer(fd)
 			writer.writerow([amr_name, 0, 0, 0, len(up_info_list)+len(down_info_list),-1, -1])
+		logging.error(amr_name+" was not found in the ref genomes!!!")
+		import pdb; pdb.set_trace()
 		return -1, -1
+	#If AMR was not found in the contig list
+	if not amr_info_list and not up_info_list and not down_info_list:
+		with open(found_file, 'a') as fa:
+			fa.write(amr_name+'\n')
+		with open(summary_file,'a') as fd:
+			writer = csv.writer(fd)
+			writer.writerow([amr_name, 0, 0, ref_len, 0,0, 0])
+		return 0, 0
 	#find the number of unique true-positives, all false positives, total found cases, all unique true cases
 	unique_tp = 0
 	for ref_info in ref_up_info_list:
@@ -188,52 +219,57 @@ def main(args):
 	with open(summary_file,'a') as fd:
 		writer = csv.writer(fd)
 		writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
+	found_file = contig_dir + '/'+NOT_FOUND_FILE
 	# create a db from contig file
 	command = 'makeblastdb -in '+params.contig_file +' -parse_seqids -dbtype nucl'
 	os.system(command)
+	#to find the annotation of ref genomes for all AMRs
+	df = pd.read_csv(params.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
+	amr_groups = df.groupby('target_amr')
 	#Going over amrs one by one to extract their neighborhood and annotate and evaluate
 	average_precision = 0
 	average_sensitivity = 0
 	for amr_file in amr_files:
-		amr_name = os.path.splitext(os.path.basename(amr_file))[0]
-		mydir = contig_dir+'/'+amr_name
+		restricted_amr_name = extract_name_from_file_name(amr_file)
+		mydir = contig_dir+'/'+restricted_amr_name
+		amr_seq, amr_name = retrieve_AMR(amr_file)
 		if not os.path.exists(mydir):
 			os.makedirs(mydir)
-		annotation_file_name =mydir+'/contig_annotation_'+amr_name+'_'+str(params.seq_length)+'.csv'
+		annotation_file_name =mydir+'/contig_annotation_'+restricted_amr_name+'_'+str(params.seq_length)+'.csv'
 		with open(annotation_file_name, 'a') as fd:
 			writer = csv.writer(fd)
 			writer.writerow(['seq_name', 'seq_value', 'seq_length', 'gene', 'prokka_gene_name',
 							'product', 'length', 'start_pos', 'end_pos', 'RGI_prediction_type',
 							 'family', 'target_amr'])
 		#Read ref neighborhood annotations from corresponding file
-		annotate_dir = params.output_dir+'annotations/annotations_'+str(params.seq_length)+'/annotation_'+amr_name+'_'+str(params.seq_length)
-		annotation_file = annotate_dir+'/coverage_annotation_'+str(params.coverage_thr)+'_'+amr_name+'.csv'
-		ref_amr_info_list, ref_up_info_list, ref_down_info_list =\
-			read_ref_neighborhood_annotation(annotation_file)
+		ref_up_info_list, ref_amr_info_list, ref_down_info_list =\
+			read_ref_annotations_from_db(amr_groups, amr_name)
 		#extract neighborhoods in contigs and annotate
 		up_info_list, down_info_list, amr_info_list, seq_info_list =\
-			extract_seq_neighborhood_and_annotate(amr_file, amr_name, params.seq_length,
+			extract_seq_neighborhood_and_annotate(amr_seq, amr_name, params.seq_length,
 								params.contig_file, params.amr_identity_threshold, mydir,
 								params.PROKKA_COMMAND_PREFIX, params.use_RGI,
 								params.RGI_include_loose, annotation_file_name)
-		sensitivity, precision = evaluate_sequences_up_down(amr_name, summary_file,
+		original_amr_name = retreive_original_amr_name(amr_name)
+		sensitivity, precision = evaluate_sequences_up_down(original_amr_name, summary_file,
 									up_info_list, down_info_list, amr_info_list,
-									ref_up_info_list, ref_down_info_list, ref_amr_info_list)
+									ref_up_info_list, ref_down_info_list, ref_amr_info_list,
+									found_file)
 		average_precision+=precision
 		average_sensitivity+=sensitivity
-		print('For "'+amr_name+'": sensitivity= '+str(sensitivity)+' precision = '+ str(precision))
+		logging.info('For "'+amr_name+'": sensitivity= '+str(sensitivity)+' precision = '+ str(precision))
 
-	print('average precision: '+str(average_precision/len(amr_files))+'\naverage sensitivity: '+ str(average_sensitivity/len(amr_files)))
+	logging.info('average precision: '+str(average_precision/len(amr_files))+'\naverage sensitivity: '+ str(average_sensitivity/len(amr_files)))
 
 
 if __name__=="__main__":
 
-	text = 'This code is used to find the sequences in the contig file'
-	parser = argparse.ArgumentParser(description=text)
-	parser.add_argument('--contig', '-C', type=str, default='',
-		help='the path of the file containing the sequence of all contigs')
-	parser.add_argument('--seq','-S', type=str, default = '',
-		help = 'the path of the file containing the sequences')
-	args = parser.parse_args()
+	# text = 'This code is used to find the sequences in the contig file'
+	# parser = argparse.ArgumentParser(description=text)
+	# parser.add_argument('--contig', '-C', type=str, default='',
+	# 	help='the path of the file containing the sequence of all contigs')
+	# parser.add_argument('--seq','-S', type=str, default = '',
+	# 	help = 'the path of the file containing the sequences')
+	# args = parser.parse_args()
 	import params
 	main(params)

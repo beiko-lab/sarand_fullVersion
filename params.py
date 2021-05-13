@@ -38,37 +38,45 @@ class Insertion_type(enum.Enum):
 	assigned = 2
 
 class Assembler_name(enum.Enum):
-    meta_spades = 1
+    metaspades = 1
     megahit = 2
     bcalm = 3
+    metacherchant = 4
+    spacegraphcats = 5
 
 BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
 ART_PATH = '/media/Data/tools/art_src_MountRainier_Linux/art_illumina'
 SPADES_PATH = '/home/somayeh/miniconda3/bin/spades.py'
 #PATH_PREFIX = '/media/Data/PostDoc/Dalhousie/Work/Test1/'
 PATH_PREFIX = '/media/Data/PostDoc/Dalhousie/Work/Test2/'
+#PATH_PREFIX = '/media/Data/PostDoc/Dalhousie/Work/'
 
 multi_processor = True
 core_num = 4
 coverage_thr = 30
-task = [5, 7]
+task = [6]
 
-#output_dir = 'Experiments/1_1_1_limit/'
+#output_dir = 'Experiments/2_2_2/'
 #output_dir = 'Experiments/real_sample1/'
-output_dir = 'Experiments/CAMI_M_1/'
+output_dir = 'Experiments/CAMI_H_1/'
+#output_dir = 'Experiments/metacherchant/CAMI_H_1/'
+#output_dir = 'Experiments/northwood/'
+#output_dir = 'Experiments/spacegraphcats/2_2_2/'
 
 ##amr_files = PATH_PREFIX + output_dir + 'AMR/sequences/TEM-181.fasta'
-amr_files = PATH_PREFIX + output_dir +'AMR/sequences/'
+amr_files = PATH_PREFIX + output_dir +'AMR_info/sequences/'
 artificial_amr_insertion = False
-find_amr_genes = True
+find_amr_genes = False
 amr_identity_threshold =  95
 
-ref_genomes_available = False
-ref_genome_files = PATH_PREFIX + output_dir + 'metagenome_data/'
+ref_genomes_available = True
+#ref_ng_seqs_file = PATH_PREFIX + output_dir + 'AMR_info/AMR_ref_neighborhood.fasta'
+ref_ng_annotations_file = PATH_PREFIX + output_dir + 'AMR_info/ref_neighborhood_annotations.csv'
+#ref_genome_files = PATH_PREFIX + output_dir + 'metagenome_data/'
 #ref_genome_files = [PATH_PREFIX + 'SE_FDAARGOS_768.fasta', PATH_PREFIX + 'enterococcus_zy2.fasta']
-ref_CAMI_genome_available = True
-ref_CAMI_file = PATH_PREFIX + output_dir + 'M2_S001__insert_180_gsa_anonymous.fasta'
-#ref_CAMI_file = PATH_PREFIX + output_dir + 'M2_S002__insert_180_gsa_anonymous.fasta'
+#ref_genome_files = PATH_PREFIX + output_dir + 'M2_S001__insert_180_gsa_anonymous.fasta'
+#ref_genome_files = PATH_PREFIX + output_dir + 'M2_S002__insert_180_gsa_anonymous.fasta'
+ref_genome_files = PATH_PREFIX + output_dir + 'H_S001__insert_180_gsa_anonymous.fasta'
 
 
 #insertion of AMR gene in ref_genome
@@ -85,28 +93,39 @@ read_length =  150
 metagenome_file = PATH_PREFIX + output_dir +'metagenome.fasta'
 #reads =[PATH_PREFIX + output_dir + 'sub50_trimmed_ERR1713331_1.fastq',\
 # 		PATH_PREFIX + output_dir + 'sub50_trimmed_ERR1713331_2.fastq']
-reads = PATH_PREFIX + output_dir +'H_S001__insert_180_reads_anonymous.fq.gz'
+#reads = PATH_PREFIX + output_dir +'H_S001__insert_180_reads_anonymous.fq.gz'
+reads =[PATH_PREFIX + output_dir + 'NW016_1_trimmed._R1.fastq',\
+ 		PATH_PREFIX + output_dir + 'NW016_1_trimmed._R2.fastq']
+
 spades_thread_num = 16
 
-assembler = Assembler_name.bcalm
+assembler = Assembler_name.metaspades
 #Setting for assembler
-if assembler == Assembler_name.meta_spades:
-	assembler_output_dir = 'spades_output'
+if assembler == Assembler_name.metaspades:
+	assembler_output_dir = 'spade_output'
 	gfa_file = PATH_PREFIX + output_dir + assembler_output_dir + '/assembly_graph_with_scaffolds.gfa'
 	contig_file = PATH_PREFIX + output_dir + assembler_output_dir + '/contigs.fasta'
 	max_kmer_size = 55
 elif assembler == Assembler_name.megahit:
 	assembler_output_dir = 'megahit_output'
 	gfa_file = PATH_PREFIX + output_dir + assembler_output_dir + '/k59.gfa'
-	contig_file = PATH_PREFIX + output_dir + assembler_output_dir + '/final.contigs.fa'
-	#contig_file = PATH_PREFIX + output_dir + assembler_output_dir + '/intermediate_contigs/k59.contigs.fa'
-	max_kmer_size = 59
+	#gfa_file = PATH_PREFIX + output_dir + assembler_output_dir + '/k119.gfa'
+	#contig_file = PATH_PREFIX + output_dir + assembler_output_dir + '/final.contigs.fa'
+	contig_file = PATH_PREFIX + output_dir + assembler_output_dir + '/intermediate_contigs/k59.contigs.fa'
+	#max_kmer_size = 59
+	max_kmer_size = 119
 elif assembler == Assembler_name.bcalm:
 	assembler_output_dir = 'bcalm_output'
 	gfa_file = PATH_PREFIX + output_dir + assembler_output_dir + '/bcalm_graph_55.gfa'
 	#doesn't produce any contig file; so just sue the one from meta-pades for evaluation
 	contig_file = PATH_PREFIX + output_dir + 'spades_output/contigs.fasta'
 	max_kmer_size = 54
+elif assembler == Assembler_name.metacherchant:
+	max_kmer_size = 30
+elif assembler == Assembler_name.spacegraphcats:
+	gfa_file = 'bcalm_graph.gfa'
+	max_kmer_size = 30
+
 spades_error_correction = True
 
 graph_distance = 3
