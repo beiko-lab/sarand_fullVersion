@@ -60,15 +60,15 @@ def write_annotations_into_file(annotation_file, amr_name, up_info_desc_list,
                 gene_info['product'], gene_info['length'], gene_info['start_pos'],
                 gene_info['end_pos'], gene_info['RGI_prediction_type'], gene_info['family']])
 
-def annotate_neighborhood_sequences(ref_ng_info_list):
+def annotate_neighborhood_sequences(ref_ng_info_list, out_dir):
     """
     """
-    error_file ="not_found_annotation_amrs_in_ref.txt"
+    error_file =out_dir+"not_found_annotation_amrs_in_ref.txt"
     error_writer = open(error_file, 'w')
-    annotate_dir = 'ref_annotations/'
+    annotate_dir = out_dir+'ref_annotations/'
     if not os.path.exists(annotate_dir):
         os.makedirs(annotate_dir)
-    annotation_file = 'ref_neighborhood_annotations.csv'
+    annotation_file = out_dir+'ref_neighborhood_annotations.csv'
     with open(annotation_file,  'a') as fd:
         writer = csv.writer(fd)
         writer.writerow(['target_amr', 'gene_location', 'seq_name', 'seq_value',
@@ -127,10 +127,11 @@ def extract_amr_length(amr_sequences_file):
             amr_objects.append(amr_object)
     return amr_objects
 
-def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, neighborhood_len = 1000, threshold = 95):
+def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, out_dir,
+									neighborhood_len = 1000, threshold = 95):
     """
     """
-    blast_file_name = 'blast_out.csv'
+    blast_file_name = out_dir+'blast_out.csv'
     if not os.path.isfile(blast_file_name):
         # Find the length of each AMR sequence
         amr_objects = extract_amr_length(amr_sequences_file)
@@ -146,8 +147,8 @@ def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, neighborhood
             ' -num_threads 4 > '+ blast_file_name
         os.system(command)
 
-    AMR_dir = 'sequences/'
-    ng_file = 'AMR_ref_neighborhood.fasta'
+    AMR_dir = out_dir+'sequences/'
+    ng_file = out_dir+'AMR_ref_neighborhood.fasta'
     if not os.path.exists(AMR_dir) or not os.path.isfile(ng_file):
         #Read the blast result
         amr_list = []
@@ -242,12 +243,12 @@ def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, neighborhood
 
     return zip(amr_list, ng_lists)
 
-def find_annotate_amrs_in_ref(seq, db):
+def find_annotate_amrs_in_ref(seq, db, out_dir = ''):
 	"""
 	"""
 	if seq and db:
-		ref_ng_info = find_all_amrs_and_neighborhood(seq, db)
-		annotation_file = annotate_neighborhood_sequences(ref_ng_info)
+		ref_ng_info = find_all_amrs_and_neighborhood(seq, db, out_dir)
+		annotation_file = annotate_neighborhood_sequences(ref_ng_info, out_dir)
 		return 1
 	else:
 		return -1

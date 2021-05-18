@@ -18,6 +18,7 @@ import argparse
 import csv
 from csv import DictReader
 import logging
+import shutil
 
 def show_images(image_list, main_title, output, cols = 1, title_list = None):
 	"""
@@ -96,6 +97,10 @@ def visualize_annotation(input_csv_file, output, title=''):
 	seq_info_list, seq_length_list, title_list = extract_annotation_from_csv(input_csv_file)
 	if not seq_info_list:
 		return
+	#create a temporary folder to store tmporary images
+	temp_dir = 'tmp_image/'
+	if not os.path.exists(temp_dir):
+		os.makedirs(temp_dir)
 	image_list = []
 	for counter, seq_info in enumerate(seq_info_list):
 		if not seq_info:
@@ -106,10 +111,17 @@ def visualize_annotation(input_csv_file, output, title=''):
 				strand=+1, color='#ffd700', label = gene_info['name']+gene_info['coverage']))
 		record = GraphicRecord(sequence_length=seq_length_list[counter], features=features)
 		ax, _  = record.plot(figure_width=10)
-		ax.figure.savefig('temp'+str(counter)+'.jpg', bbox_inches='tight')
-		img = Image.open('temp'+str(counter)+'.jpg')
+		ax.figure.savefig(temp_dir+'temp'+str(counter)+'.jpg', bbox_inches='tight')
+		img = Image.open(temp_dir+'temp'+str(counter)+'.jpg')
 		image_list.append(img)
 	show_images(image_list=image_list, main_title = title, output = output, title_list = title_list)
+	#delete temporary directory
+	if os.path.exists(temp_dir):
+		try:
+			shutil.rmtree(temp_dir)
+		except OSError as e:
+			logging.error("Error: %s - %s." % (e.filename, e.strerror))
+
 
 def main(args):
 	"""
