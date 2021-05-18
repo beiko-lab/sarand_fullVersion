@@ -20,6 +20,8 @@ import pandas as pd
 import collections
 import shutil
 
+AMR_FAMILY_INFO = 'aro_index.tsv'
+
 def extract_name_from_file_name(file_name):
 	"""
 	"""

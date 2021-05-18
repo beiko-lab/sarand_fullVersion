@@ -44,6 +44,10 @@ class Assembler_name(enum.Enum):
 BANDAGE_PATH = '/PATH/TO/Bandage'
 ART_PATH = '/PATH/TO/art_illumina'
 SPADES_PATH = '/PATH/TO/spades.py'
+# BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
+# ART_PATH = '/media/Data/tools/art_src_MountRainier_Linux/art_illumina'
+# SPADES_PATH = '/home/somayeh/miniconda3/bin/spades.py'
+
 CARD_AMR_SEQUENCES ='data/CARD_AMR_seq.fasta'
 main_dir = 'test/'
 PROKKA_COMMAND_PREFIX = 'docker run -v `pwd`:/data staphb/prokka:latest '
@@ -51,7 +55,7 @@ PROKKA_COMMAND_PREFIX = 'docker run -v `pwd`:/data staphb/prokka:latest '
 multi_processor = True
 core_num = 4
 coverage_thr = 30
-task = [0]
+task = [7]
 
 amr_files = main_dir +'AMR_info/sequences/'
 find_amr_genes = False
@@ -106,10 +110,10 @@ graph_distance = 3
 seq_length = 1000
 
 # to be used in sequence extraction and after having path_node_threshold number of
-#nodes in our path or already extracting path_seq_len_percent_threshod percent of
+#nodes in our path or already extracting path_seq_len_percent_threshold percent of
 #neighborhood sequence, we stop or only traverse the path from the longest neighbor of the current node
 path_node_threshold =  10
-path_seq_len_percent_threshod = 90
+path_seq_len_percent_threshold = 90
 
 use_RGI =  True
 RGI_include_loose = False

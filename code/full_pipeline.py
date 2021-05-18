@@ -66,7 +66,6 @@ from find_amrs_in_sample import find_annotate_amrs_in_ref
 ASSEMBLY_FILE = 'assembly_graph_with_scaffolds.gfa'
 CONTIG_FILE = 'contigs.fasta'
 #ALL_AMR_SEQUENCES ='nucleotide_fasta_protein_homolog_model_without_efflux_without_space.fasta'
-AMR_FAMILY_INFO = 'aro_index.tsv'
 AMR_DIR_NAME = 'AMR_info/'
 AMR_SEQ_DIR = 'sequences/'
 AMR_ALIGN_DIR = 'alignments/'
@@ -2917,7 +2916,7 @@ def sequence_neighborhood_main(params, gfa_file, graph_file, amr_seq_align_info)
 		p_extraction = partial(neighborhood_sequence_extraction, gfa_file, params.seq_length,
 							sequence_dir, params.BANDAGE_PATH,
 							params.amr_identity_threshold, SEQ_NAME_PREFIX,
-							params.path_node_threshold , params.path_seq_len_percent_threshod,
+							params.path_node_threshold , params.path_seq_len_percent_threshold,
 							params.max_kmer_size, params.assembler)
 		with Pool(params.core_num) as p:
 			lists = p.map(p_extraction, amr_seq_align_info)
@@ -2927,7 +2926,7 @@ def sequence_neighborhood_main(params, gfa_file, graph_file, amr_seq_align_info)
 			seq_file, path_info_file = neighborhood_sequence_extraction(gfa_file, params.seq_length,
 								sequence_dir, params.BANDAGE_PATH,
 								params.amr_identity_threshold, SEQ_NAME_PREFIX,
-								params.path_node_threshold , params.path_seq_len_percent_threshod,
+								params.path_node_threshold , params.path_seq_len_percent_threshold,
 								params.max_kmer_size, params.assembler, amr_file)
 			if seq_file:
 				path_info_files.append(path_info_file)
@@ -3031,7 +3030,8 @@ def main(params):
 		#is not available then call find_amrs_in sample.py first to detect the AMRs from the ref sample
 		if not os.path.exists(params.main_dir+AMR_DIR_NAME):
 			os.makedirs(params.main_dir+AMR_DIR_NAME)
-			if find_annotate_amrs_in_ref(params.CARD_AMR_SEQUENCES, params.metagenome_file)==-1:
+			if find_annotate_amrs_in_ref(params.CARD_AMR_SEQUENCES, params.metagenome_file,
+											params.main_dir+AMR_DIR_NAME)==-1:
 				print('please enter the path for the sample file and amr sequences file')
 				import pdb; pdb.set_trace()
 				sys.exit()
@@ -3155,7 +3155,8 @@ def main(params):
 			coverage_annotation_list = seq_annotation_trim_main(params, unique_amr_files,\
 				all_seq_info_lists, annotation_file_list, True)
 
-	if params.ref_genomes_available and not MULTIPLE_COV_THR and Pipeline_tasks.neighborhood_evaluation.value in task_list:
+	if params.ref_genomes_available and not isinstance(params.coverage_thr, list)\
+		and Pipeline_tasks.neighborhood_evaluation.value in task_list:
 		annotation_evaluation_main(params, unique_amr_files, coverage_annotation_list,
 					ref_up_info_lists, ref_down_info_lists, ref_amr_info_lists,
 					not_found_amr_names)
@@ -3234,7 +3235,7 @@ if __name__=="__main__":
 		help = 'the threshold used for amr alignment: a hit is returned if identity/coverage >= threshold')
 	parser.add_argument('--path_node_threshold', type = int, default = params.path_node_threshold,
 		help = 'the threshold used for recursive pre_path and post_path search as long as the length of the path is less that this threshold')
-	parser.add_argument('--path_seq_len_percent_threshold', type = int, default = params.path_seq_len_percent_threshod,
+	parser.add_argument('--path_seq_len_percent_threshold', type = int, default = params.path_seq_len_percent_threshold,
 		help = 'the threshold used for recursive pre_seq and post_seq until we have this percentage of the required length\
 		 after which we just extract from the longest neighbor')
 	parser.add_argument('--ref_genomes_available', type = str2bool, default = params.ref_genomes_available,
@@ -3277,7 +3278,7 @@ if __name__=="__main__":
 	params.artificial_amr_insertion = args.artificial_amr_insertion
 	params.amr_identity_threshold = args.amr_identity_threshold
 	params.path_node_threshold = args.path_node_threshold
-	params.path_seq_len_percent_threshod = args.path_seq_len_percent_threshod
+	params.path_seq_len_percent_threshold = args.path_seq_len_percent_threshold
 	params.ref_genomes_available = args.ref_genomes_available
 	params.coverage_thr = args.coverage_thr
 	params.multi_processor = args.multi_processor
