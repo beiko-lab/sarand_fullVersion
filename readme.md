@@ -64,8 +64,8 @@ and then run the code by:
 
 Note: You don't need to install and set the parameters for ART and SPAdes if the assembly graph is provided as an input.
 
-### Step III: Exploring the code
-#### Optional parameters to set
+## Exploring the code
+### Optional parameters to set
 The list of all parameters that can be set in this tool have been provided in code/params.py, and includes the following parameters that can be set via command line as well:  
 - -h, --help   
 > show help message and exit
@@ -122,15 +122,15 @@ The list of all parameters that can be set in this tool have been provided in co
 - --coverage_thr COVERAGE_THRESHOLD
 > coverage threshold to check if an annotated gene is truly AMR neighbor or just a false positive
 
-#### Python files
-##### 1- full_pipeline.py
+### Python files
+#### 1- full_pipeline.py
 This is the core file to do all the steps available in our tool including concatenating ref genomes in a single file, simulating reads, assembling reads, extracting amr neighborhood, annotating amr neighborhood sequences and evaluation (in case that ref genomes are available).
 
 To run, make sure that parameters are set in code/params.py:
 
 `python code/full_pipeline.py`
 
-##### 2- extract_neighborhood.py
+#### 2- extract_neighborhood.py
 This is the main file to extract the neighborhood of an AMR gene from an assembly graph.
 
 To run:
@@ -141,7 +141,7 @@ python code/extract_neighborhood.py --amr/-A <AMR gene file path in FASTA format
 --length/-L <length of the linear sequence around AMR gene to be extracted (default = 1000)>
 --main_dir <the output directory to store the results>
 ```
-##### 3- find_amrs_in_sample.py
+#### 3- find_amrs_in_sample.py
 This code is used to find all AMRs available in a metagenome sample, extract their neighborhood sequences and annotate them.
 
 To run:
@@ -154,7 +154,7 @@ Note: it reads 3 parameetrs from params.py:
 - params.use_RGI
 - params.RGI_include_loose
 
-##### 4- amr_neighborhood_in_contigs.py
+#### 4- amr_neighborhood_in_contigs.py
 This code is used to find the neighborhood of AMRs in a contig file, annotate them, compare them with that of the ref genomes and calculate the sentivity and precision.
 
 To run:
@@ -171,7 +171,7 @@ NOTE: It reads required parameters from code/params.py and the most important pa
 NOTE: The result are available in the following directory:
 `params.main_dir+'contigs_output_'+str(params.seq_length)`
 
-##### 5- annotation_visualization.py
+#### 5- annotation_visualization.py
 This file is used to visualize sequences annotations.
 
 To run:
