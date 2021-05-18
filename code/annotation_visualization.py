@@ -19,6 +19,7 @@ import csv
 from csv import DictReader
 import logging
 import shutil
+import os
 
 def show_images(image_list, main_title, output, cols = 1, title_list = None):
 	"""
