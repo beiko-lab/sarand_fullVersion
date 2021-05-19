@@ -55,7 +55,7 @@ PROKKA_COMMAND_PREFIX = 'docker run -v `pwd`:/data staphb/prokka:latest '
 multi_processor = True
 core_num = 4
 coverage_thr = 30
-task = [7]
+task = [0]
 
 amr_files = main_dir +'AMR_info/sequences/'
 find_amr_genes = False
@@ -124,6 +124,7 @@ ng_path_info_files = main_dir + 'sequences_info/sequences_info_'+str(seq_length)
 
 #insertion of AMR gene in ref_genome
 artificial_amr_insertion = False
+inserted_amr_file = ''
 number_of_insertions = [2, 1]
 number_of_copies = [[3, 1],[1]]
 insertion_type = Insertion_type.random

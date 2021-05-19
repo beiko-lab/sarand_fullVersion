@@ -1949,9 +1949,10 @@ def find_amrs_alignment_in_graph_parallel(gfa_file, output_dir, amr_files, banda
 	#generate the groups and store the group of each amr
 	group_num = 2
 	amr_group_id = collections.defaultdict(list)
-	amr_file_groups = [[] for i in range(group_num*core_num)]
+	amr_groups_num = min(group_num*core_num, len(amr_files))
+	amr_file_groups = [[] for i in range(amr_groups_num)]
 	for i, amr_file in enumerate(amr_files):
-		id = i % (group_num*core_num)
+		id = i % (amr_groups_num)
 		amr_file_groups[id].append(amr_file)
 		amr_group_id[amr_file] = id
 	#concatenate files of each group into a single file
@@ -3009,10 +3010,10 @@ def main(params):
 	logging.info("Startting the pipeline ...")
 	#Validate task values
 	task_list = validate_task_values(params.task)
-	if params.artificial_amr_insertion and params.find_amr_genes:
-		logging.error("variables 'artificial_amr_insertion' and 'find_amr_genes' cannot be True at the same run!")
-		import pdb; pdb.set_trace()
-		sys.exit()
+	# if params.artificial_amr_insertion and params.find_amr_genes:
+	# 	logging.error("variables 'artificial_amr_insertion' and 'find_amr_genes' cannot be True at the same run!")
+	# 	import pdb; pdb.set_trace()
+	# 	sys.exit()
 
 	graph_file =""
 	metagenome_file = ""
@@ -3023,9 +3024,23 @@ def main(params):
 	gfa_file = None
 	ref_amr_files = []
 	ref_genome_files = []
+	if params.ref_genomes_available and params.artificial_amr_insertion:
+		if params.inserted_amr_file=='' or not os.path.isfile(params.inserted_amr_file):
+			logging.error("ERROR: no AMR file has been provided!")
+			import pdb; pdb.set_trace()
+			sys.exit()
+
 	if params.ref_genomes_available and (Pipeline_tasks.metagenome_creation.value in task_list or
 										 not os.path.exists(params.main_dir+AMR_DIR_NAME)):
 		ref_genome_files = extract_files(params.ref_genome_files, 'please provide the address of genome files')
+		if Pipeline_tasks.metagenome_creation.value in task_list:
+			logging.info("Creating the metagenome sample ...")
+			if params.artificial_amr_insertion:
+				genome_amr_files, metagenome_file = create_metagenome_with_amr_insertion(ref_genome_files,
+							params.number_of_insertions, params.insertion_type, params.insertion_locations,
+							params.inserted_amr_file, params.main_dir)
+			else:
+				metagenome_file = concatenate_files(ref_genome_files, params.metagenome_file)
 		#if ref_genome is available and the directory containing detected AMR sequences
 		#is not available then call find_amrs_in sample.py first to detect the AMRs from the ref sample
 		if not os.path.exists(params.main_dir+AMR_DIR_NAME):
@@ -3037,26 +3052,6 @@ def main(params):
 				sys.exit()
 	if params.ref_genomes_available:
 		ref_amr_files = extract_files(params.amr_files, 'please provide the address of the AMR gene(s)')
-
-	if params.ref_genomes_available and params.artificial_amr_insertion:
-		if not ref_amr_files:
-			logging.error("ERROR: no AMR file has been provided!")
-			import pdb; pdb.set_trace()
-			sys.exit()
-		# for now, we only accept one AMR gene to be inserted in the genomes
-		if len(ref_amr_files)>1:
-			logging.error("ERROR: for the artificial AMR insertion, we can't accept more than one AMR gene sequence!")
-			import pdb; pdb.set_trace()
-			sys.exit()
-
-	if params.ref_genomes_available and Pipeline_tasks.metagenome_creation.value in task_list:
-		logging.info("Creating the metagenome sample ...")
-		if params.artificial_amr_insertion:
-			genome_amr_files, metagenome_file = create_metagenome_with_amr_insertion(ref_genome_files,
-						params.number_of_insertions, params.insertion_type, params.insertion_locations,
-						ref_amr_files[0], params.main_dir)
-		else:
-			metagenome_file = concatenate_files(ref_genome_files, params.main_dir+'metagenome.fasta')
 
 	if Pipeline_tasks.read_simulation.value in task_list:
 		logging.info("Simulating reads ...")
