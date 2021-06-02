@@ -14,7 +14,7 @@ to be set correctly there are:
 params.seq_length, params.contig_file, params.amr_identity_threshold, params.amr_files,
 params.ref_ng_annotations_file, params.main_dir
 NOTE: The result are available in the following directory:
-params.main_dir+'contigs_output_'+str(params.seq_length)
+params.output_dir+'contigs_output_'+str(params.seq_length)
 
 """
 
@@ -220,7 +220,7 @@ def main(args):
 	#extracting all amr files
 	amr_files = extract_files(params.amr_files, 'please provide the address of the AMR gene(s)')
 	#creating a directory for results
-	contig_dir = params.main_dir+'contigs_output_'+str(params.seq_length)
+	contig_dir = params.output_dir+'contigs_output_'+str(params.seq_length)
 	if not os.path.exists(contig_dir):
 		os.makedirs(contig_dir)
 	#set up the file to store the summary metrics

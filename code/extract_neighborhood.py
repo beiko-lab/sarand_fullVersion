@@ -1950,12 +1950,12 @@ if __name__=="__main__":
 		help = 'the maximum distance of neighborhood nodes to be extracted from the AMR gene')
 	parser.add_argument('--length', '-L', type = int, default=1000,
 		help = 'the length of AMR gene\'s neighbourhood to be extracted')
-	parser.add_argument('--main_dir','-O', type=str, default = OUT_DIR,
+	parser.add_argument('--output_dir','-O', type=str, default = OUT_DIR,
 		help = 'the output directory to store the results')
 	args = parser.parse_args()
 
-	if not os.path.exists(args.main_dir):
-		os.makedirs(args.main_dir)
+	if not os.path.exists(args.output_dir):
+		os.makedirs(args.output_dir)
 
 	if not args.amr:
 		logging.error('please enter the path for the AMR gene file')
@@ -1967,7 +1967,7 @@ if __name__=="__main__":
 		import pdb; pdb.set_trace()
 		sys.exit()
 
-	neighborhood_graph_extraction(args.amr,args.gfa, args.distance, args.main_dir,
+	neighborhood_graph_extraction(args.amr,args.gfa, args.distance, args.output_dir,
 								amr_seq_align_info = (arg.amr,''))
-	neighborhood_sequence_extraction(args.gfa, args.length, args.main_dir,
+	neighborhood_sequence_extraction(args.gfa, args.length, args.output_dir,
 								amr_seq_align_info = (arg.amr,''))

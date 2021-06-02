@@ -44,16 +44,16 @@ def find_corresponding_amr_file(amr_name, amr_files):
 def main():
     """
     """
-    amr_info_file = params.main_dir+'AMR_seqs.fasta'
+    amr_info_file = params.output_dir+'AMR_seqs.fasta'
     amr_names, amr_seqs = extract_amr_info_from_file(amr_info_file)
     ref_amr_files = extract_files(params.amr_files, 'please provide the address of the AMR gene(s)')
     if params.ref_genomes_available:
         df = pd.read_csv(params.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
         amr_groups = df.groupby('target_amr')
-    sequence_dir = params.main_dir+'sequences/'
+    sequence_dir = params.output_dir+'sequences/'
     if not os.path.exists(sequence_dir):
         os.makedirs(sequence_dir)
-    evaluation_dir = params.main_dir+EVAL_DIR+'/'+EVAL_DIR+'_'+str(params.seq_length)+'/'
+    evaluation_dir = params.output_dir+EVAL_DIR+'/'+EVAL_DIR+'_'+str(params.seq_length)+'/'
     if not os.path.exists(evaluation_dir):
         os.makedirs(evaluation_dir)
     summary_file = evaluation_dir+'summaryMetrics_up_down_'+\
@@ -64,14 +64,14 @@ def main():
 
     average_precision = 0
     average_sensitivity = 0
-    no_align_file = open(params.main_dir+'no_align_found.txt', 'w')
+    no_align_file = open(params.output_dir+'no_align_found.txt', 'w')
     for i, amr_name in enumerate(amr_names):
         logging.info('Processing '+amr_name+' ...')
         restricted_amr_name = restricted_amr_name_from_modified_name(amr_name)
         amr_file = find_corresponding_amr_file(restricted_amr_name, ref_amr_files)
         #sequence extraction
         logging.info('Neighborhood Extraction ...')
-        gfa_file = params.main_dir+'output/'+str(i+163)+'/graph.gfa'
+        gfa_file = params.output_dir+'output/'+str(i+163)+'/graph.gfa'
         logging.info('gfa_file: '+gfa_file)
         seq_file, path_info_file = neighborhood_sequence_extraction(gfa_file,
                 params.seq_length, sequence_dir, params.BANDAGE_PATH,
@@ -92,7 +92,7 @@ def main():
                 ref_up_info_list, ref_amr_info_list, ref_down_info_list =\
                     read_ref_annotations_from_db(amr_groups, amr_name)
             all_seq_info_list, annotation_file =neighborhood_annotation(amr_name, seq_file,
-                    path_info_file, params.seq_length, [], [], params.main_dir,
+                    path_info_file, params.seq_length, [], [], params.output_dir,
                     params.PROKKA_COMMAND_PREFIX,params.use_RGI,
                     params.RGI_include_loose, '_'+str(i+163)+restricted_amr_name,
                     params.amr_identity_threshold, False)
@@ -101,10 +101,10 @@ def main():
             sensitivity, precision = evaluate_sequences_up_down_based_on_coverage(
                     amr_name, annotation_file, summary_file,ref_up_info_list,
                     ref_down_info_list, ref_amr_info_list,params.assembler)
-        # annotate_dir = params.main_dir+ANNOTATION_DIR+'/'+ANNOTATION_DIR+'_'+\
+        # annotate_dir = params.output_dir+ANNOTATION_DIR+'/'+ANNOTATION_DIR+'_'+\
 		# 	str(params.seq_length)+'/annotation_'+restricted_amr_name+'_'+str(params.seq_length)
 		# coverage_annotation, remained_seqs = check_coverage_consistency_remove_rest_seq(\
-		# 				all_seq_info_list, params.main_dir,params.coverage_thr,
+		# 				all_seq_info_list, params.output_dir,params.coverage_thr,
         #                 restricted_amr_name, annotate_dir+'/')
         # #Evaluation
         # print('Evaluation ...')
