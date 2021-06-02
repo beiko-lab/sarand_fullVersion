@@ -82,7 +82,7 @@ def find_corresponding_amr_file(amr_name, amr_files):
 
 def main():
     logging.info("Startting the pipeline for testing spacegraphcats ...")
-    working_dir = params.main_dir+WORK_DIR
+    working_dir = params.output_dir+WORK_DIR
     #converting graph to gfa format
     logging.info('converting graph to gfa format ... ')
     command = 'python /media/Data/tools/bcalm_convertToGFA.py '+\
@@ -95,7 +95,7 @@ def main():
     map_file = working_dir+'/mapping.fa'
     map_list = find_mapping(map_file)
     # extract the list of files
-    searching_dir = params.main_dir + SEARCH_DIR
+    searching_dir = params.output_dir + SEARCH_DIR
     id_files = [os.path.join(searching_dir, f) for f in os.listdir(searching_dir) \
             if os.path.isfile(os.path.join(searching_dir, f)) and f.endswith('cdbg_ids.txt.gz')]
     # if compressed_files:
@@ -120,22 +120,22 @@ def main():
     if params.ref_genomes_available:
         df = pd.read_csv(params.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
         amr_groups = df.groupby('target_amr')
-    sequence_dir = params.main_dir+'sequences/'
+    sequence_dir = params.output_dir+'sequences/'
     if not os.path.exists(sequence_dir):
         os.makedirs(sequence_dir)
-    evaluation_dir = params.main_dir+EVAL_DIR+'/'+EVAL_DIR+'_'+str(params.seq_length)+'/'
+    evaluation_dir = params.output_dir+EVAL_DIR+'/'+EVAL_DIR+'_'+str(params.seq_length)+'/'
     if not os.path.exists(evaluation_dir):
         os.makedirs(evaluation_dir)
     summary_file = evaluation_dir+'summaryMetrics_up_down_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
     with open(summary_file,'a') as fd:
         writer = csv.writer(fd)
         writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
-    graph_dir = params.main_dir+'ng_graphs/'
+    graph_dir = params.output_dir+'ng_graphs/'
     if not os.path.exists(graph_dir):
         os.makedirs(graph_dir)
     average_precision = 0
     average_sensitivity = 0
-    no_align_file = open(params.main_dir+'no_align_found.txt', 'w')
+    no_align_file = open(params.output_dir+'no_align_found.txt', 'w')
     #Going over the list of AMRs
     for r_amr_name, node_list in graph_node_lists.items():
         logging.info('Processing '+r_amr_name+' ...')
@@ -166,7 +166,7 @@ def main():
                 ref_up_info_list, ref_amr_info_list, ref_down_info_list =\
                     read_ref_annotations_from_db(amr_groups, amr_name)
             all_seq_info_list, annotation_file =neighborhood_annotation(amr_name, seq_file,
-                    path_info_file, params.seq_length, [], [], params.main_dir,
+                    path_info_file, params.seq_length, [], [], params.output_dir,
                     params.PROKKA_COMMAND_PREFIX,params.use_RGI,
                     params.RGI_include_loose, '_'+r_amr_name,
                     params.amr_identity_threshold, False)

@@ -389,8 +389,7 @@ def run_RGI(input_file, output_dir, seq_description, include_loose = False, dele
 
 	output_file_name = rgi_dir +"/rgi_output_"+seq_description+"_"+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
 	#remove any potential * from the sequence
-	command = "sed -i 's/*//g' " + input_file
-	os.system(command)
+	delete_a_string_from_file('*', input_file)
 	command = "rgi main --input_sequence " + input_file + " --output_file " +\
 		output_file_name +" --input_type protein --clean --exclude_nudge"
 	if include_loose:
@@ -886,3 +885,36 @@ def extract_amr_family_info(file_name = AMR_FAMILY_INFO):
 				family_info[myindex].append(gene_name.lower())
 
 	return {'family':family_list, 'gene_list':family_info}
+
+def delete_lines_started_with(ch, filename):
+	"""
+	To delete all the lines in a text file that starts with a given character
+	Parameters:
+		ch: the character
+		filename: the text file
+	"""
+	# command = "sed -i '/^P/d' " + file_name
+	# os.system(command)
+	file1 = open(filename, 'r')
+	file2 = open('temp.txt', 'w')
+	for line in file1.readlines():
+		if not (line.startswith(ch)):
+			file2.write(line)
+	file1.close()
+	file2.close()
+	os.rename('temp.txt', filename)
+
+def delete_a_string_from_file(ch, filename):
+	"""
+	To delete a given character or string from a file
+	Parameters:
+		ch: the character or string to be deleted
+		filename: the text file
+	"""
+	# command = "sed -i 's/*//g' " + input_file
+	# os.system(command)
+	with open(filename, 'r') as infile, open('temp.txt', 'w') as outfile:
+		data = infile.read()
+		data = data.replace(ch,'')
+		outfile.write(data)
+	os.rename('temp.txt', filename)
