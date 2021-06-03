@@ -3004,7 +3004,7 @@ def extract_amr_info(params, graph_file, ref_amr_files):
 
 	return unique_amr_files, not_found_amr_names, unique_amr_path_list
 
-def main(params):
+def full_pipeline_main(params):
 	logging.info("Startting the pipeline ...")
 	#Validate task values
 	task_list = validate_task_values(params.task)
@@ -3012,16 +3012,6 @@ def main(params):
 	# 	logging.error("variables 'artificial_amr_insertion' and 'find_amr_genes' cannot be True at the same run!")
 	# 	import pdb; pdb.set_trace()
 	# 	sys.exit()
-	#create the output directory; if it exists, delete it and create a new one
-	if not os.path.exists(params.output_dir):
-		os.makedirs(params.output_dir)
-	else:
-		try:
-			shutil.rmtree(params.output_dir)
-		except OSError as e:
-			logging.error("Error: %s - %s." % (e.filename, e.strerror))
-		os.makedirs(params.output_dir)
-
 	graph_file =""
 	metagenome_file = ""
 	genome_amr_files = []
@@ -3051,9 +3041,10 @@ def main(params):
 		#if ref_genome is available and the directory containing detected AMR sequences
 		#is not available then call find_amrs_in sample.py first to detect the AMRs from the ref sample
 		if not os.path.exists(params.output_dir+AMR_DIR_NAME):
-			os.makedirs(params.output_dir+AMR_DIR_NAME)
+			#os.makedirs(params.output_dir+AMR_DIR_NAME)
 			if find_annotate_amrs_in_ref(params.CARD_AMR_SEQUENCES, params.metagenome_file,
-											params.output_dir+AMR_DIR_NAME)==-1:
+											params.PROKKA_COMMAND_PREFIX, params.use_RGI,
+											params.RGI_include_loose, params.output_dir)==-1:
 				print('please enter the path for the sample file and amr sequences file')
 				import pdb; pdb.set_trace()
 				sys.exit()
@@ -3165,12 +3156,10 @@ def main(params):
 
 	logging.info("All Done!")
 
-if __name__=="__main__":
-
-	import params
-
-	text = 'This code is used to find the context of a given AMR gene'
-	parser = argparse.ArgumentParser(description=text)
+def create_arguments(params, parser):
+	"""
+	To create all required qrguments
+	"""
 	parser.add_argument('--task', nargs="+", default=params.task,
 		help="which task would you like to do?\
 		For the entire pipeline choose "+str(Pipeline_tasks.all.value)+"; otherwise\
@@ -3250,11 +3239,14 @@ if __name__=="__main__":
 		help = 'the number of cores used in case of parallel programming')
 	parser.add_argument('--coverage_thr', nargs="+", default = params.coverage_thr,
 		help = 'coverage threshold to check if an annotated gene is truly AMR neighbor or just a false positive')
-	# parser.add_argument('--coverage_thr', type = int, default = params.coverage_thr,
-	# 	help = 'coverage threshold to check if an annotated gene is truely AMR neighbor or just a falose positive')
+	parser.add_argument('--ref_ng_annotations_file', type = str, default = params.ref_ng_annotations_file,
+		help = 'the file containing the annotation of all neighborhoods extracted from ref genomes.')
 
-	args = parser.parse_args()
+	return parser
 
+def modify_params(params, args):
+	"""
+	"""
 	#updating params values
 	params.task = args.task
 	params.amr_files = args.amr_files
@@ -3288,8 +3280,27 @@ if __name__=="__main__":
 	params.coverage_thr = args.coverage_thr
 	params.multi_processor = args.multi_processor
 	params.core_num = args.core_num
+	params.ref_ng_annotations_file = args.ref_ng_annotations_file
 
+	return params
+
+if __name__=="__main__":
+	import params
+	text = 'This code is used to find the context of a given AMR gene'
+	parser = argparse.ArgumentParser(description=text)
+	parser = create_arguments(params, parser)
+	args = parser.parse_args()
+	params = modify_params(params, args)
 	log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
 	initialize_logger(params.main_dir, log_name)
 	logging.info(str(params.__dict__))
-	main(params)
+	#create the output directory; if it exists, delete it and create a new one
+	if not os.path.exists(params.output_dir):
+		os.makedirs(params.output_dir)
+	else:
+		try:
+			shutil.rmtree(params.output_dir)
+		except OSError as e:
+			logging.error("Error: %s - %s." % (e.filename, e.strerror))
+		os.makedirs(params.output_dir)
+	full_pipeline_main(params)
