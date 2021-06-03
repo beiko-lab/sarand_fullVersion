@@ -293,7 +293,7 @@ def create_ref_arguments(params, parser):
 	"""
 	"""
 	parser.add_argument('--db', type=str, default='',
-		help='the path of the file containing the (meta)genome sample')
+		help='the path of the file or directory containing the (meta)genome sample')
 	parser.add_argument('--seq', type=str, default = params.CARD_AMR_SEQUENCES,
 		help = 'the path of the fasta file containing all AMR sequences')
 	parser.add_argument('--use_RGI', type = str2bool, default = params.use_RGI,
@@ -301,7 +301,7 @@ def create_ref_arguments(params, parser):
 	parser.add_argument('--RGI_include_loose', type = str2bool, default = params.RGI_include_loose,
 		help = 'Whether to include loose cases in RGI result')
 	parser.add_argument('--prokka_prefix', type = str, default = params.PROKKA_COMMAND_PREFIX,
-		help = 'Used only if prokka is run through docker')
+		help = 'Set only if prokka is run through docker')
 	parser.add_argument('--main_dir', '-m', type = str, default=params.main_dir,
 		help = 'the main dir to retrieve required files')
 	parser.add_argument('--output_dir', '-O', type = str, default=params.output_dir,

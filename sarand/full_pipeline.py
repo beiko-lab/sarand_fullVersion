@@ -3241,6 +3241,8 @@ def create_arguments(params, parser):
 		help = 'coverage threshold to check if an annotated gene is truly AMR neighbor or just a false positive')
 	parser.add_argument('--ref_ng_annotations_file', type = str, default = params.ref_ng_annotations_file,
 		help = 'the file containing the annotation of all neighborhoods extracted from ref genomes.')
+	parser.add_argument('--prokka_prefix', type = str, default = params.PROKKA_COMMAND_PREFIX,
+		help = 'Set only if prokka is run through docker')
 
 	return parser
 
@@ -3281,6 +3283,7 @@ def modify_params(params, args):
 	params.multi_processor = args.multi_processor
 	params.core_num = args.core_num
 	params.ref_ng_annotations_file = args.ref_ng_annotations_file
+	params.PROKKA_COMMAND_PREFIX = args.prokka_prefix
 
 	return params
 
