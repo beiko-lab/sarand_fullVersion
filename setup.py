@@ -5,15 +5,14 @@ from distutils.core import setup
 with open('README.md') as fh:
     long_description = fh.read()
 
-with open('code/__init__.py') as fh:
+with open('sarand/__init__.py') as fh:
     info = fh.read()
     version = re.search('^__version__\s*=\s*"(.*)"',
                         info, re.M).group(1)
 
 setup(
     name='sarand',
-    ##not sure about the package name given that files are in code (or it can be sarand!)????
-    packages=['code'],
+    packages=['sarand'],
     version=version,
     license="GPLv3",
     description="Tool to extract the neighborhood of the target Antimicrobial Resistance (AMR) genes from the assembly graph.",
@@ -28,12 +27,20 @@ setup(
     #what about the ones in the requirement file?????? should I include them here?????
     install_requires=['pandas'],
     #not sure how to set this correctly???????????????????
-    data_files=[('data', ['data/'])],
+    # package_data={
+    #     'sarand': ['data/CARD_AMR_seq.fasta'],
+    # },
+    data_files=[('data', ['data/CARD_AMR_seq.fasta']), ('test', ['test/metagenome_data/Ecoli_NC_010488.fna',\
+                    'test/metagenome_data/klebsiella_NC_009650.fna', 'test/metagenome_data/staphylo_NC_002758.fna'])],
     #How to include test files???? similar to the above or in manifest.in
     #I need to work on entry-points????????
     entry_points={
         'console_scripts': [
-            'hamronize = hAMRonization.hamronize:main'
+            'sarand = sarand.sarand_main:main'
+            #What happens to loading parameters from param.py????????????????
+            # ,'full_pipeline = sarand.full_pipeline:main',
+            # 'find_ref_amrs = sarand.find_amrs_in_sample:main',
+            # 'find_contig_amrs = sarand.amr_neighborhood_in_contigs:main'
             ],
         },
     classifiers=[
