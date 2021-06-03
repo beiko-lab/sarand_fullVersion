@@ -7,6 +7,7 @@ import logging
 import shutil
 #import sarand
 import params
+from __init__ import __version__
 from full_pipeline import create_arguments, modify_params, full_pipeline_main
 from utils import initialize_logger
 from find_amrs_in_sample import create_ref_arguments, find_ref_amrs_main
@@ -39,7 +40,7 @@ def find_ref_amrs_init(args, params):
             shutil.rmtree(args.output_dir)
         except OSError as e:
             logging.error("Error: %s - %s." % (e.filename, e.strerror))
-        os.makedirs(args.output_dir)    
+        os.makedirs(args.output_dir)
     logging.info("Running find_amrs_in_sample ...")
     find_ref_amrs_main(args)
 
@@ -55,8 +56,8 @@ def main():
                                         "genes from the assembly graph.",
                                         prog='sarand',
                                         usage='sarand <tool> <options>')
-    # parser.add_argument('-v', '--version', action='version',
-    #                     version=f"%(prog)s {sarand.__version__}")
+    parser.add_argument('-v', '--version', action='version',
+                        version=f"%(prog)s {__version__}")
     # add tool specific parsers
     subparser = parser.add_subparsers(title="Available tools under sarand",help='')
     # add subparser for full_pipeline.py

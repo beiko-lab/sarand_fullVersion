@@ -295,7 +295,7 @@ def create_contig_arguments(params, parser):
 	parser.add_argument('--RGI_include_loose', type = str2bool, default = params.RGI_include_loose,
 		help = 'Whether to include loose cases in RGI result')
 	parser.add_argument('--prokka_prefix', type = str, default = params.PROKKA_COMMAND_PREFIX,
-		help = 'Used only if prokka is run through docker')
+		help = 'Set only if prokka is run through docker')
 
 	return parser
 

@@ -25,7 +25,9 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     #what about the ones in the requirement file?????? should I include them here?????
-    install_requires=['pandas'],
+    install_requires=['biopython>=1.72','numpy>=1.19.1','dna_features_viewer>=3.0.3',
+                        'matplotlib>=3.3.2','gfapy>=1.1.0','Bio>=0.0.6','Pillow>=7.2.0',
+                        'pandas', 'prokka', 'rgi'],
     #not sure how to set this correctly???????????????????
     # package_data={
     #     'sarand': ['data/CARD_AMR_seq.fasta'],
