@@ -325,9 +325,9 @@ def do_assembly(reads, spades_path, output_dir, thread_num = 16, error_correctio
 	"""
 	command = ""
 	if len(reads)==2:
-		command = 'python ' + spades_path + ' -1 '+reads[0]+' -2 '+reads[1]+' --meta '
+		command = spades_path + ' -1 '+reads[0]+' -2 '+reads[1]+' --meta '
 	else:
-		command = 'python ' + spades_path + ' --12 '+reads + ' --meta '
+		command = spades_path + ' --12 '+reads + ' --meta '
 	if not error_correction:
 		command+='--only-assembler '
 	command += '--threads ' + str(thread_num) + ' -o '+ output_dir

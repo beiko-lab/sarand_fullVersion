@@ -39,7 +39,15 @@ conda install prokka
 conda install art
 conda install bandage
 ```
-Note: In current implementation, Prokka has been run via docker. If you would like to install it from a different channel, you need to update PROKKA_COMMAND_PREFIX variable in params.py with an appropriate value which is probably an empty string.  
+Links to their repositories cane be found here:
+- prokka: https://github.com/tseemann/prokka
+- RGI: https://github.com/arpcard/rgi
+- Bandage: https://rrwick.github.io/Bandage/
+- ART: https://www.niehs.nih.gov/research/resources/software/biostatistics/art/
+
+Note: In case, prokka can't be installed through bioconda, I suggest using the docker
+container [staphb/prokka](https://hub.docker.com/r/staphb/prokka) by the following command:
+`docker pull staphb/prokka:latest`. Please note that PROKKA_COMMAND_PREFIX variable in params.py need to be updated with an appropriate value which is probably an empty string unless prokka is run through docker.  
 
 #### Installing python requirements
 Note: Make sure that you are in the root directory of this tool (AMR_context).
@@ -47,11 +55,14 @@ Note: Make sure that you are in the root directory of this tool (AMR_context).
 
 ### Step II: Testing
 #### Updating params.py
-Make sure to update the following parameters in code/params.py.
+Make sure to update the following parameter in code/params.py.
+- PROKKA_COMMAND_PREFIX (it probably should either be an empty string or the command from docker if you installed prokka via docker)
+
+Note: you might also need the following parameters in code/params.py to provide the path to Bandage, ART and SPAdes, in case they have not been installed via conda.
 - BANDAGE_PATH (the path to access bandage executable file)
 - ART_PATH (the path to access art_illumina directory)
 - SPADES_PATH (the path to spades.py)
-- PROKKA_COMMAND_PREFIX (it probably should either be an empty string or the command from docker if you installed prokka via docker)
+
 
 #### Running the test code
 To run the code, make sure you are in the created conda environment.
