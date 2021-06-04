@@ -41,17 +41,15 @@ class Assembler_name(enum.Enum):
     metacherchant = 4
     spacegraphcats = 5
 
-BANDAGE_PATH = '/PATH/TO/Bandage'
-ART_PATH = '/PATH/TO/art_illumina'
-SPADES_PATH = '/PATH/TO/spades.py'
-# BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
-# ART_PATH = '/media/Data/tools/art_src_MountRainier_Linux/art_illumina'
-# SPADES_PATH = '/home/somayeh/miniconda3/bin/spades.py'
+BANDAGE_PATH = 'Bandage'
+#BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
+ART_PATH = 'art_illumina'
+SPADES_PATH = 'spades.py'
+PROKKA_COMMAND_PREFIX = 'docker run -v `pwd`:/data staphb/prokka:latest '
 
 CARD_AMR_SEQUENCES ='data/CARD_AMR_seq.fasta'
 main_dir = 'test/'
 output_dir = main_dir+'output_dir/'
-PROKKA_COMMAND_PREFIX = 'docker run -v `pwd`:/data staphb/prokka:latest '
 
 multi_processor = True
 core_num = 4
