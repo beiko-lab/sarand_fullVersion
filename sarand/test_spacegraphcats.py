@@ -7,7 +7,7 @@ import logging
 import collections
 import gzip
 import gfapy
-
+import subprocess
 import params
 from extract_neighborhood import neighborhood_sequence_extraction
 from utils import extract_files, restricted_amr_name_from_modified_name,\
@@ -85,9 +85,13 @@ def main():
     working_dir = params.output_dir+WORK_DIR
     #converting graph to gfa format
     logging.info('converting graph to gfa format ... ')
-    command = 'python /media/Data/tools/bcalm_convertToGFA.py '+\
-    working_dir+'/bcalm.unitigs.fa '+working_dir+'/'+params.gfa_file+' 31'
-    os.system(command)
+	convert_command = subprocess.run(["python","/media/Data/tools/bcalm_convertToGFA.py",
+                    working_dir+"/bcalm.unitigs.fa", working_dir+'/'+params.gfa_file,
+							"31"], stdout=subprocess.PIPE, check= True)
+	logging.info(convert_command.stdout.decode('utf-8'))
+    # command = 'python /media/Data/tools/bcalm_convertToGFA.py '+\
+    # working_dir+'/bcalm.unitigs.fa '+working_dir+'/'+params.gfa_file+' 31'
+    # os.system(command)
     logging.info('Loading graph from gfa file ...')
     bcalm_graph = gfapy.Gfa.from_file(working_dir+'/'+params.gfa_file)
     #find the mapping

@@ -39,7 +39,7 @@ conda install prokka
 conda install art
 conda install bandage
 ```
-Links to their repositories cane be found here:
+Links to their repositories can be found here:
 - prokka: https://github.com/tseemann/prokka
 - RGI: https://github.com/arpcard/rgi
 - Bandage: https://rrwick.github.io/Bandage/
@@ -58,7 +58,7 @@ Note: Make sure that you are in the root directory of this tool (AMR_context).
 Make sure to update the following parameter in code/params.py.
 - PROKKA_COMMAND_PREFIX (it probably should either be an empty string or the command from docker if you installed prokka via docker)
 
-Note: you might also need the following parameters in code/params.py to provide the path to Bandage, ART and SPAdes, in case they have not been installed via conda.
+Note: you might also need to update the following parameters in code/params.py to provide the path to Bandage, ART and SPAdes, in case they have not been installed via conda.
 - BANDAGE_PATH (the path to access bandage executable file)
 - ART_PATH (the path to access art_illumina directory)
 - SPADES_PATH (the path to spades.py)

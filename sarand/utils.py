@@ -19,6 +19,7 @@ from csv import DictReader
 import pandas as pd
 import collections
 import shutil
+import subprocess
 
 AMR_FAMILY_INFO = 'aro_index.tsv'
 
@@ -104,13 +105,13 @@ def check_reads(v):
 		return v
 	elif isinstance(v, list):
 		if len(v)!=2:
-			return False
+			return -1
 		for item in v:
 			if not isinstance(v, str):
-				return False
+				return -1
 		return v
 	else:
-		return False
+		return -1
 
 def str2bool(v):
 	"""
@@ -157,7 +158,7 @@ def verify_file_existence(myfile, param_file, message):
 				if not isinstance(file, str) or not os.path.isfile(file):
 					error = True
 			if not error:
-				return True
+				return param_file
 	logging.error("ERROR: "+message)
 	sys.exit()
 
@@ -390,12 +391,18 @@ def run_RGI(input_file, output_dir, seq_description, include_loose = False, dele
 	output_file_name = rgi_dir +"/rgi_output_"+seq_description+"_"+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
 	#remove any potential * from the sequence
 	delete_a_string_from_file('*', input_file)
-	command = "rgi main --input_sequence " + input_file + " --output_file " +\
-		output_file_name +" --input_type protein --clean --exclude_nudge"
+	arg_list = ["rgi","main", "--input_sequence", input_file, "--output_file",
+				output_file_name, "--input_type", "protein", "--clean", "--exclude_nudge"]
 	if include_loose:
-		command+=" --include_loose"
-	#rgi main --input_sequence  <seq_file_name> --output_file <output_file_name> --clean --include_loose --exclude_nudge --low_quality
-	os.system(command)
+		carg_list.append("--include_loose")
+	rgi_command = subprocess.run(arg_list, stdout=subprocess.PIPE, check= True)
+	logging.info(rgi_command.stdout.decode('utf-8'))
+	# command = "rgi main --input_sequence " + input_file + " --output_file " +\
+	# 	output_file_name +" --input_type protein --clean --exclude_nudge"
+	# if include_loose:
+	# 	command+=" --include_loose"
+	# #rgi main --input_sequence  <seq_file_name> --output_file <output_file_name> --clean --include_loose --exclude_nudge --low_quality
+	# os.system(command)
 	seq_info_list = []
 	if os.path.isfile(output_file_name + '.txt'):
 		with open(output_file_name + '.txt', newline = '') as rgi_file:
@@ -441,9 +448,16 @@ def annotate_sequence(seq, seq_description, output_dir, prokka_prefix, use_RGI =
 	# 		shutil.rmtree(prokka_dir)
 	# 	except OSError as e:
 	# 		logging.error("Error: %s - %s." % (e.filename, e.strerror))
-	command = prokka_prefix + 'prokka --metagenome --outdir '+\
-		prokka_dir+' --prefix '+ prefix_name+' --fast --notrna '+seq_file_name
-	os.system(command)
+	# command = prokka_prefix + 'prokka --metagenome --outdir '+\
+	# 	prokka_dir+' --prefix '+ prefix_name+' --fast --notrna '+seq_file_name
+	# os.system(command)
+	arg_list = ["prokka", "--metagenome", "--outdir", prokka_dir, "--prefix",
+				prefix_name, "--fast", "--notrna", seq_file_name]
+	if prokka_prefix!="":
+		pre_list = prokka_prefix.strip().split(" ")
+		arg_list = pre_list + arg_list
+	prokka_command = subprocess.run(arg_list, stdout=subprocess.PIPE, check= True)
+	logging.info(prokka_command.stdout.decode('utf-8'))
 	#move prokka directory to the right address
 	shutil.move(prokka_dir, output_dir+prokka_dir)
 	prokka_dir = output_dir + prokka_dir
@@ -583,9 +597,14 @@ def compare_two_sequences(seq1, seq2, output_dir, threshold = 90, switch_allowed
 		subject_file.write(seq1)
 	#run blast query for alignement
 	blast_file_name = output_dir+'blast'+blast_ext+'.csv'
-	command = 'blastn -query '+query_file_name+' -subject '+subject_file_name+\
-		' -task blastn-short -outfmt 10  > '+ blast_file_name
-	os.system(command)
+	blast_file = open(blast_file_name, "w")
+	blast_command = subprocess.run(["blastn", "-query", query_file_name, "-subject",
+						subject_file_name,"-task", "blastn-short", "-outfmt", "10"],
+						stdout=blast_file, check= True)
+	blast_file.close()
+	# command = 'blastn -query '+query_file_name+' -subject '+subject_file_name+\
+	# 	' -task blastn-short -outfmt 10  > '+ blast_file_name
+	# os.system(command)
 
 	if return_file:
 		return blast_file_name
@@ -850,9 +869,12 @@ def concatenate_files(ref_files, final_file = 'metagenome.fasta'):
 	Return:
 		The address of final_file
 	"""
+	final = open(final_file, 'a')
 	for myfile in ref_files:
-		command = 'cat '+myfile+' >> ' + final_file
-		os.system(command)
+		cat_command = subprocess.run(["cat", myfile], stdout=final, check=True)
+		# command = 'cat '+myfile+' >> ' + final_file
+		# os.system(command)
+	final.close()
 	return final_file
 
 def extract_family_of_amrs(info_file = '/media/Data/PostDoc/Dalhousie/Work/Test2/aro_index.tsv'):
