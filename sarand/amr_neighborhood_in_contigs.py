@@ -26,6 +26,7 @@ import re
 import argparse
 import datetime
 import csv
+import subprocess
 from csv import DictReader
 import logging
 import pandas as pd
@@ -233,8 +234,11 @@ def find_contig_amrs_main(args):
 		writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
 	found_file = contig_dir + '/'+NOT_FOUND_FILE
 	# create a db from contig file
-	command = 'makeblastdb -in '+args.contig_file +' -parse_seqids -dbtype nucl'
-	os.system(command)
+	db_command = subprocess.run(["makeblastdb","-in", args.contig_file, "-parse_seqids",
+								"-dbtype", "nucl"], stdout=subprocess.PIPE, check= True)
+	logging.info(db_command.stdout.decode('utf-8'))
+	# command = 'makeblastdb -in '+args.contig_file +' -parse_seqids -dbtype nucl'
+	# os.system(command)
 	#to find the annotation of ref genomes for all AMRs
 	df = pd.read_csv(args.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
 	amr_groups = df.groupby('target_amr')

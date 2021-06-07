@@ -21,6 +21,7 @@ import difflib
 import datetime
 import csv
 import collections
+import subprocess
 from Bio import SeqIO
 
 OUTPUT_DIR = 'temp'
@@ -59,8 +60,11 @@ def find_sequence_match(query, contig_file, out_dir = OUTPUT_DIR, blast_ext = ''
 		and end of matched part of the contig
 	"""
 	#Create DB from contig file
-	command = 'makeblastdb -in '+contig_file +' -parse_seqids -dbtype nucl'
-	os.system(command)
+	db_command = subprocess.run(["makeblastdb","-in", contig_file, "-parse_seqids",
+							"-dbtype", "nucl"], stdout=subprocess.PIPE, check= True)
+	logging.info(db_command.stdout.decode('utf-8'))
+	# command = 'makeblastdb -in '+contig_file +' -parse_seqids -dbtype nucl'
+	# os.system(command)
 	#write the sequence into a fasta file
 	query_file = out_dir+'/query.fasta'
 	file = open(query_file, 'w')
@@ -68,10 +72,14 @@ def find_sequence_match(query, contig_file, out_dir = OUTPUT_DIR, blast_ext = ''
 	file.close()
 	#run blast query for alignement
 	blast_file_name = out_dir+'/blast'+blast_ext+'.csv'
-	command = 'blastn -query '+query_file+' -db '+contig_file+\
-		' -task blastn -outfmt 10 -max_target_seqs 5 -evalue 0.5 -perc_identity 95 > '+ blast_file_name
-
-	os.system(command)
+	blast_file = open(blast_file_name, "w")
+	blast_command = subprocess.run(["blastn", "-query", query_file, "-db", contig_file,
+						"-task", "blastn", "-outfmt", "10", "-max_target_seqs", "5",
+						"-evalue", "0.5", "-perc_identity", "95"], stdout=blast_file, check= True)
+	blast_file.close()
+	# command = 'blastn -query '+query_file+' -db '+contig_file+\
+	# 	' -task blastn -outfmt 10 -max_target_seqs 5 -evalue 0.5 -perc_identity 95 > '+ blast_file_name
+	# os.system(command)
 	contig_list = []
 	contig = collections.namedtuple('contig', 'name identity matched_length q_start q_end c_start c_end')
 	with open(blast_file_name, 'r') as file1:

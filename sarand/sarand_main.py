@@ -19,12 +19,12 @@ def full_pipeline_init(args, params):
     #create the output directory; if it exists, delete it and create a new one
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-    else:
-        try:
-            shutil.rmtree(args.output_dir)
-        except OSError as e:
-            logging.error("Error: %s - %s." % (e.filename, e.strerror))
-        os.makedirs(args.output_dir)
+    # else:
+    #     try:
+    #         shutil.rmtree(args.output_dir)
+    #     except OSError as e:
+    #         logging.error("Error: %s - %s." % (e.filename, e.strerror))
+    #     os.makedirs(args.output_dir)
     logging.info('Running full_pipeline ...')
     params = modify_params(params, args)
     full_pipeline_main(params)
@@ -35,12 +35,12 @@ def find_ref_amrs_init(args, params):
     #create the output directory; if it exists, delete it and create a new one
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-    else:
-        try:
-            shutil.rmtree(args.output_dir)
-        except OSError as e:
-            logging.error("Error: %s - %s." % (e.filename, e.strerror))
-        os.makedirs(args.output_dir)
+    # else:
+    #     try:
+    #         shutil.rmtree(args.output_dir)
+    #     except OSError as e:
+    #         logging.error("Error: %s - %s." % (e.filename, e.strerror))
+    #     os.makedirs(args.output_dir)
     logging.info("Running find_amrs_in_sample ...")
     find_ref_amrs_main(args)
 

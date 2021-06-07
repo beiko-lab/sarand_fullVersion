@@ -24,6 +24,7 @@ import difflib
 import datetime
 import csv
 import collections
+import subprocess
 from Bio import SeqIO
 from gfapy.sequence import rc
 import shutil
@@ -108,14 +109,19 @@ def find_sequence_match(query, contig_file, out_dir = TEMP_DIR, blast_ext = '',
 	file.close()
 	#run blast query for alignement
 	blast_file_name = out_dir+'/blast'+blast_ext+'.csv'
-	command = 'blastn -query '+query_file+' -db '+contig_file+\
-		' -outfmt 10 -max_target_seqs '+str(max_target_seqs)+' -evalue 0.5 -perc_identity '+str(threshold-1)+' > '+ blast_file_name
+	blast_file = open(blast_file_name, 'w')
+	blast_command = subprocess.run(["blastn", "-query", query_file, "-db", contig_file,
+						"-outfmt", "10", "-max_target_seqs", str(max_target_seqs),
+						"-evalue", "0.5", "-perc_identity", str(threshold-1)],
+						stdout=blast_file, check= True)
+	blast_file.close()
 	# command = 'blastn -query '+query_file+' -db '+contig_file+\
-	# 	' -task blastn -outfmt 10 -max_target_seqs '+str(max_target_seqs)+' -evalue 0.5 -perc_identity '+str(threshold-1)+' > '+ blast_file_name
-	# command = 'blastn -query '+query_file+' -db '+contig_file+\
-	# 	' -task blastn -outfmt 10 -max_target_seqs 5 -evalue 0.5 -perc_identity 95 > '+ blast_file_name
-
-	os.system(command)
+	# 	' -outfmt 10 -max_target_seqs '+str(max_target_seqs)+' -evalue 0.5 -perc_identity '+str(threshold-1)+' > '+ blast_file_name
+	# # command = 'blastn -query '+query_file+' -db '+contig_file+\
+	# # 	' -task blastn -outfmt 10 -max_target_seqs '+str(max_target_seqs)+' -evalue 0.5 -perc_identity '+str(threshold-1)+' > '+ blast_file_name
+	# # command = 'blastn -query '+query_file+' -db '+contig_file+\
+	# # 	' -task blastn -outfmt 10 -max_target_seqs 5 -evalue 0.5 -perc_identity 95 > '+ blast_file_name
+	# os.system(command)
 	contig_list = []
 	contig = collections.namedtuple('contig', 'name identity matched_length q_start q_end c_start c_end')
 	with open(blast_file_name, 'r') as file1:
@@ -1467,15 +1473,16 @@ def find_amr_related_nodes(amr_file, gfa_file, output_dir, bandage_path = BANDAG
 		output_name=output_dir+output_pre+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 		if os.path.isfile(output_name+'.tsv'):
 			os.remove(output_name+'.tsv')
-		command = bandage_path +' querypaths '+gfa_file+' '+amr_file+' '+output_name + ' --pathnodes 50'
-		os.system(command)
+		bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, amr_file,
+						output_name, "--pathnodes", "50"], stdout=subprocess.PIPE, check= True )
+		logging.info(bandage_command.stdout.decode('utf-8'))
+		# command = bandage_path +' querypaths '+gfa_file+' '+amr_file+' '+output_name + ' --pathnodes 50'
+		# os.system(command)
 		align_file = output_name+".tsv"
 	#Process the output tsv file
 	found, paths_info = read_path_info_from_align_file(output_name+".tsv", threshold)
 
 	return found, paths_info
-
-
 
 def check_if_similar_ng_extractions_exist(amr_path_info, amr_paths_info):
 	"""
@@ -1552,10 +1559,16 @@ def order_path_nodes(path_nodes, amr_file, out_dir, threshold = 90):
 		query_file = create_fasta_file(node.sequence, out_dir, comment = ">"+node.name+"\n", file_name = 'query')
 		#run blast query for alignement
 		blast_file_name = out_dir+'blast.csv'
-		command = 'blastn -query '+query_file+' -subject '+amr_file+\
-			' -task blastn -outfmt 10 -max_target_seqs 10 -evalue 0.5 -perc_identity '+\
-			str(threshold)+' > '+ blast_file_name
-		os.system(command)
+		blast_file = open(blast_file_name, "w")
+		blast_command = subprocess.run(["blastn", "-query", query_file, "-subject", amr_file,
+						"-task", "blastn", "-outfmt", "10", "-max_target_seqs", "10",
+						"-evalue", "0.5", "-perc_identity", str(threshold-1)],
+						stdout=blast_file, check= True)
+		blast_file.close()
+		# command = 'blastn -query '+query_file+' -subject '+amr_file+\
+		# 	' -task blastn -outfmt 10 -max_target_seqs 10 -evalue 0.5 -perc_identity '+\
+		# 	str(threshold)+' > '+ blast_file_name
+		# os.system(command)
 		with open(blast_file_name, 'r') as file1:
 			myfile = csv.reader(file1)
 			for row in myfile:

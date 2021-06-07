@@ -262,6 +262,7 @@ def create_metagenome_with_amr_insertion(ref_genome_files, number_of_insertions,
 	insert_counter = 0
 	genome_files = []
 	amr_seq, _ = retrieve_AMR(amr_file)
+	meta_file = open(output_dir+metagenome_file, 'a')
 	for genome, insert_number in zip(ref_genome_files, number_of_insertions):
 		if insertion_type.name == 'random':
 			#find the number of lines in genome file
@@ -273,9 +274,11 @@ def create_metagenome_with_amr_insertion(ref_genome_files, number_of_insertions,
 			else:
 				new_file = insert_amr_in_location(genome, amr_seq, insertion_locations[insert_counter], output_dir)
 			genome_files.append(new_file)
-			command = 'cat '+new_file+' >> ' + output_dir + metagenome_file
-			os.system(command)
+			cat_command = subprocess.run(["cat", new_file], stdout=meta_file, check=True)
+			# command = 'cat '+new_file+' >> ' + output_dir + metagenome_file
+			# os.system(command)
 			insert_counter+=1
+	meta_file.close()
 	return genome_files, output_dir + metagenome_file
 
 def simulate_reads(metagenome_file, read_length, art_path, fcov = 20, sdev = 10):
@@ -295,17 +298,24 @@ def simulate_reads(metagenome_file, read_length, art_path, fcov = 20, sdev = 10)
 	if read_length == 150:
 		command = art_path+' -ss HS25 -sam -i ' + metagenome_file + ' -p -l 150 \
 			-f '+str(fcov)+' -m 500 -s '+str(sdev)+' -o ' + metagenome_file_name +'_'
+		arg_list = [art_path, "-ss", "HS25", "-sam", "-i", metagenome_file,
+					"-p", "-l", "150", "-f", str(fcov), "-m", "500", "-s", str(sdev),
+					"-o" ,metagenome_file_name +'_']
 	elif read_length ==250:
 		command = art_path+' -ss MSv3 -sam -i ' + metagenome_file + ' -p -l 250 \
 			-f '+str(fcov)+' -m 1000 -s '+str(sdev)+' -o ' + metagenome_file_name +'_'
+		arg_list = [art_path, "-ss", "MSv3", "-sam", "-i", metagenome_file,
+					"-p", "-l", "250", "-f", str(fcov), "-m", "1000", "-s", str(sdev),
+					"-o" ,metagenome_file_name +'_']
 	else:
 		logging.error("ERROR: the read_length is not valid! In the current implementation it can\
 		 be either 150 or 250!")
 		import pdb; pdb.set_trace()
 		sys.exit()
 	logging.info("Running ART: "+command)
-	os.system(command)
-
+	#os.system(command)
+	art_command = subprocess.run(arg_list,  stdout=subprocess.PIPE, check= True)
+	logging.info(art_command.stdout.decode('utf-8'))
 	read1 = metagenome_file_name + '_1.fq'
 	read2 = metagenome_file_name + '_2.fq'
 	return [read1, read2]
@@ -325,15 +335,20 @@ def do_assembly(reads, spades_path, output_dir, thread_num = 16, error_correctio
 	"""
 	command = ""
 	if len(reads)==2:
+		arg_list = [spades_path, "-1", reads[0], "-2", reads[1], "--meta"]
 		command = spades_path + ' -1 '+reads[0]+' -2 '+reads[1]+' --meta '
 	else:
+		arg_list = [spades_path, "--12", reads, "--meta"]
 		command = spades_path + ' --12 '+reads + ' --meta '
 	if not error_correction:
+		arg_list.append("--only-assembler")
 		command+='--only-assembler '
+	arg_list+=["--threads", str(thread_num), "-o", output_dir]
 	command += '--threads ' + str(thread_num) + ' -o '+ output_dir
 	logging.info("Running MetaSPAdes: "+command)
-	os.system(command)
-
+	#os.system(command)
+	spade_command = subprocess.run(arg_list,  stdout=subprocess.PIPE,  stderr=subprocess.PIPE, check= True)
+	logging.info(spade_command.stdout.decode('utf-8'))
 	#remove paths from GFA file
 	gfa_file = output_dir + '/'+ ASSEMBLY_FILE
 	delete_lines_started_with('P', gfa_file)
@@ -1816,9 +1831,12 @@ def is_there_amr_in_graph_check_longer_paths_incrementally(amr_name, gfa_file, o
 	while (not found) and (path_nodes < MAX_PATH_NODES):
 		if os.path.isfile(output_name+'.tsv'):
 			os.remove(output_name+'.tsv')
-		command = bandage_path +' querypaths ' + gfa_file+' '+amr_file+' '+output_name +\
-		' --pathnodes '+str(path_nodes)
-		os.system(command)
+		bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, amr_file,
+							output_name, "--pathnodes", str(path_nodes)], stdout=subprocess.PIPE, check= True )
+		logging.info(bandage_command.stdout.decode('utf-8'))
+		# command = bandage_path +' querypaths ' + gfa_file+' '+amr_file+' '+output_name +\
+		# ' --pathnodes '+str(path_nodes)
+		# os.system(command)
 		found, paths_info = read_path_info_from_align_file(output_name+".tsv", threshold)
 		path_nodes+=1
 
@@ -1849,8 +1867,11 @@ def is_there_amr_in_graph(gfa_file, output_dir, bandage_path, threshold, amr_fil
 	output_name=output_dir+amr_name+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 	if os.path.isfile(output_name+'.tsv'):
 		os.remove(output_name+'.tsv')
-	command = bandage_path +' querypaths '+gfa_file+' '+amr_file+' '+output_name + ' --pathnodes 50'
-	os.system(command)
+	bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, amr_file,
+						output_name, "--pathnodes", "50"], stdout=subprocess.PIPE, check= True )
+	logging.info(bandage_command.stdout.decode('utf-8'))
+	# command = bandage_path +' querypaths '+gfa_file+' '+amr_file+' '+output_name + ' --pathnodes 50'
+	# os.system(command)
 
 	found, paths_info = read_path_info_from_align_file(output_name+".tsv", threshold)
 	if not found:
@@ -1914,8 +1935,11 @@ def are_there_amrs_in_graph(gfa_file, output_dir, bandage_path, threshold, amr_o
 	output_name=output_dir+extract_name_from_file_name(cat_file)+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 	if os.path.isfile(output_name+'.tsv'):
 		os.remove(output_name+'.tsv')
-	command = bandage_path +' querypaths '+gfa_file+' '+cat_file+' '+output_name + ' --pathnodes 50'
-	os.system(command)
+	bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, cat_file,
+						output_name, "--pathnodes", "50"], stdout=subprocess.PIPE, check= True )
+	logging.info(bandage_command.stdout.decode('utf-8'))
+	# command = bandage_path +' querypaths '+gfa_file+' '+cat_file+' '+output_name + ' --pathnodes 50'
+	# os.system(command)
 
 	paths_info_list = read_path_info_from_align_file_with_multiple_amrs(output_name+".tsv", threshold)
 
@@ -2716,12 +2740,19 @@ def seq_annotation_trim_main(params, amr_files, all_seq_info_lists,
 								params.coverage_thr, restricted_amr_name, annotate_dir+'/')
 		if visualize:
 			# create an image presenting the annotations for all sequences
-			if coverage_annotation!='':
-				visual_annotation_csv = construct_combined_annotation_file(
-						coverage_annotation, amr_file, params)
+			if params.ref_genomes_available:
+				if coverage_annotation!='':
+					visual_annotation_csv = construct_combined_annotation_file(
+							coverage_annotation, amr_file, params)
+				else:
+					visual_annotation_csv = construct_combined_annotation_file(
+							annotation_files[i], amr_file, params)
 			else:
-				visual_annotation_csv = construct_combined_annotation_file(
-						annotation_files[i], amr_file, params)
+				if coverage_annotation!='':
+					visual_annotation_csv = coverage_annotation
+				else:
+					visual_annotation_csv = annotation_files[i]
+
 			visual_annotation = annotate_dir+'/gene_comparison_'+str(params.coverage_thr)+'_'+restricted_amr_name+'.png'
 			visualize_annotation(visual_annotation_csv, output=visual_annotation)
 		if params.coverage_thr>0:

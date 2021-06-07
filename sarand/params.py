@@ -10,6 +10,7 @@ NOTE: if use_RGI = TRUE, make sure either RGI has been installed system-wide or
 	you already are in the environment RGI installed in!
 """
 import enum
+import os
 
 """
 # The list of valid tasks
@@ -45,7 +46,9 @@ BANDAGE_PATH = 'Bandage'
 #BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
 ART_PATH = 'art_illumina'
 SPADES_PATH = 'spades.py'
-PROKKA_COMMAND_PREFIX = 'docker run -v `pwd`:/data staphb/prokka:latest '
+cwd = os.getcwd()
+PROKKA_COMMAND_PREFIX = 'docker run -v '+cwd+':/data staphb/prokka:latest '
+# PROKKA_COMMAND_PREFIX = 'docker run -v `pwd`:/data staphb/prokka:latest '
 
 CARD_AMR_SEQUENCES ='data/CARD_AMR_seq.fasta'
 main_dir = 'test/'
@@ -70,9 +73,9 @@ read_length =  150
 metagenome_file = output_dir +'metagenome.fasta'
 #reads =[output_dir + 'sub50_trimmed_ERR1713331_1.fastq',\
 # 		output_dir + 'sub50_trimmed_ERR1713331_2.fastq']
-#reads = output_dir +'H_S001__insert_180_reads_anonymous.fq.gz'
-reads =[output_dir + 'NW016_1_trimmed._R1.fastq',\
- 		output_dir + 'NW016_1_trimmed._R2.fastq']
+#reads = main_dir +'NW016_1.forward_trimmedmerged.fastq.gz'
+reads =[main_dir + 'NW016_1._R1_val_1_trim_galore.fq.gz',\
+ 		main_dir + 'NW016_1._R2_val_2_trim_galore.fq.gz']
 
 spades_thread_num = 16
 
