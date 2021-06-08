@@ -15,9 +15,9 @@ It can also be used to simulate sequence reads from some reference genomes (thro
 Our tool relies on several dependencies, including Python, Prokka, RGI, BLAST, Bandage, MetaSPAdes (in case the assembly graph has not already been generated) and ART (in case of simulating reads).
 The most straight forward way to install this tool's dependencies is using bioconda.
 #### Cloning the tool repository
-`git clone https://github.com/beiko-lab/AMR_context`
+`git clone https://github.com/beiko-lab/sarand`
 
-Now, move to AMR_context directory.
+Now, move to sarand directory (You should see setup.py there!).
 #### Installing bioconda
 Make sure [bioconda](https://bioconda.github.io/user/install.html) has been installed and the channels are set properly as follows.
 ```
@@ -40,7 +40,7 @@ container [staphb/prokka](https://hub.docker.com/r/staphb/prokka) by the followi
 `docker pull staphb/prokka:latest`. Please note that PROKKA_COMMAND_PREFIX variable in params.py need to be updated with an appropriate value which is probably an empty string unless prokka is run through docker.  
 
 #### Installing python requirements
-Note: Make sure that you are in the root directory of this tool (AMR_context).
+Note: Make sure that you are in the root directory of this tool (sarand).
 
     conda activate sarand
     pip install .

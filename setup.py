@@ -31,10 +31,11 @@ setup(
     # package_data={
     #     'sarand': ['data/CARD_AMR_seq.fasta'],
     # },
-    data_files=[('data', ['data/CARD_AMR_seq.fasta']), ('test', ['test/metagenome_data/Ecoli_NC_010488.fna',\
-                    'test/metagenome_data/klebsiella_NC_009650.fna', 'test/metagenome_data/staphylo_NC_002758.fna'])],
+    # data_files=[('data', ['data/CARD_AMR_seq.fasta']), ('test', ['test/metagenome_data/Ecoli_NC_010488.fna',\
+    #                 'test/metagenome_data/klebsiella_NC_009650.fna', 'test/metagenome_data/staphylo_NC_002758.fna'])],
     #How to include test files???? similar to the above or in manifest.in
-    #I need to work on entry-points????????
+    include_package_data=True,
+    package_data={'': ['data/*.fasta']},
     entry_points={
         'console_scripts': [
             'sarand = sarand.sarand_main:main'
