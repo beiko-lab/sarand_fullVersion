@@ -1,9 +1,14 @@
-# Documentation for AMR Context Extraction
+# Documentation for Sarand
+
+
 This document provides an overview of how the proposed tool can be installed and used. It attempts to document all necessary details to set up the tool, and provides some run guides.
 
 ## Overview
 This tool can be used to extract the neighborhood of the target Antimicrobial Resistance (AMR) genes from the assembly graph.
 It can also be used to simulate sequence reads from some reference genomes (through ART), run MetaSPAdes to assemble the simulated reads and then reconstruct the neighborhood of the AMR genes.
+
+![sarand](sarand/docs/sarand.png)
+
 
 ## Installation
 ### Step I: install the dependencies
@@ -20,26 +25,11 @@ conda config --add channels defaults
 conda config --add channels bioconda
 conda config --add channels conda-forge
 ```
-#### Creating a new conda environment
-It's recommend to set up a conda environment first, so packages and
-versions don't get mixed up with system versions.
-`conda create -n amr_context python=3.6.10`
+#### Create a new conda environment
 
-#### Activating the conda environment
-`conda activate amr_context`
+`conda env create -f conda_env.yaml`
 
-#### Installing BLAST
-The installation instructions are available for [Linux/Unix/MacOS](https://www.ncbi.nlm.nih.gov/books/NBK52640/) and [Windows](https://www.ncbi.nlm.nih.gov/books/NBK52637/). For more details, please refer to [Blast+ user manual](https://www.ncbi.nlm.nih.gov/books/NBK279690/).
-
-#### Installing dependencies through conda
-```
-conda install pip
-conda install rgi=5.1.1
-conda install prokka
-conda install art
-conda install bandage
-```
-Links to their repositories can be found here:
+Links to repositories of the main tool dependencies can be found here:
 - prokka: https://github.com/tseemann/prokka
 - RGI: https://github.com/arpcard/rgi
 - Bandage: https://rrwick.github.io/Bandage/
@@ -51,7 +41,9 @@ container [staphb/prokka](https://hub.docker.com/r/staphb/prokka) by the followi
 
 #### Installing python requirements
 Note: Make sure that you are in the root directory of this tool (AMR_context).
-`pip install -r requirements.txt`
+
+    conda activate sarand
+    pip install .
 
 ### Step II: Testing
 #### Updating params.py
@@ -68,11 +60,11 @@ Note: you might also need to update the following parameters in code/params.py t
 To run the code, make sure you are in the created conda environment.
 To activate it, run:
 
-`conda activate amr_context`
+    conda activate sarand`
 
 and then run the code by:
 
-`python code/full_pipeline.py`
+    sarand full_pipeline`
 
 Note: You don't need to install and set the parameters for ART and SPAdes if the assembly graph is provided as an input.
 

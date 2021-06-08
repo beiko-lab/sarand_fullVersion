@@ -31,10 +31,10 @@ import shutil
 import logging
 import enum
 
-from utils import reverse_sign, find_node_orient, find_node_name, find_node_name_orient,\
+from sarand.utils import reverse_sign, find_node_orient, find_node_name, find_node_name_orient,\
 					exist_in_path, compare_two_sequences, read_path_info_from_align_file,\
 					create_fasta_file
-from params import Assembler_name
+from sarand.params import Assembler_name
 #from find_seq_in_contigs import find_sequence_match
 
 BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
