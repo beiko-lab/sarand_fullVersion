@@ -5,13 +5,13 @@ import argparse
 import datetime
 import logging
 import shutil
-#import sarand
-import params
-from __init__ import __version__
-from full_pipeline import create_arguments, modify_params, full_pipeline_main
-from utils import initialize_logger
-from find_amrs_in_sample import create_ref_arguments, find_ref_amrs_main
-from amr_neighborhood_in_contigs import create_contig_arguments, find_contig_amrs_main
+
+from sarand import params, full_pipeline, utils, find_amrs_in_sample, amr_neighborhood_in_contigs
+from sarand.__init__ import __version__
+from sarand.full_pipeline import create_arguments, modify_params, full_pipeline_main
+from sarand.utils import initialize_logger
+from sarand.find_amrs_in_sample import create_ref_arguments, find_ref_amrs_main
+from sarand.amr_neighborhood_in_contigs import create_contig_arguments, find_contig_amrs_main
 
 def full_pipeline_init(args, params):
     """
@@ -64,7 +64,7 @@ def main():
     full_parser = subparser.add_parser('full_pipeline', description="Complete pipeline "
                                         "to extract AMR neighborhood from assembly graph "
                                         "and annotate it",
-                                       usage="sarand_main.py full_pipeline <options>",
+                                       usage="sarand full_pipeline <options>",
                                        help='')
     full_parser = create_arguments(params, full_parser)
     full_parser.set_defaults(func = full_pipeline_init)
@@ -72,7 +72,7 @@ def main():
     ref_parser = subparser.add_parser('find_ref_amrs', description="To find all AMRs available "
                                         "in a metagenome sample, extract their neighborhood "
                                         "sequences and annotate them",
-                                       usage="sarand_main.py find_ref_amrs <options>",
+                                       usage="sarand find_ref_amrs <options>",
                                        help='')
     ref_parser = create_ref_arguments(params, ref_parser)
     ref_parser.set_defaults(func = find_ref_amrs_init)
@@ -81,7 +81,7 @@ def main():
                                             "of AMRs in a contig file, compare them with "
     			                            "that of the ref genomes and calculate the "
                                             "sentivity and precision",
-                                       usage="sarand_main.py find_contig_amrs <options>",
+                                       usage="sarand find_contig_amrs <options>",
                                        help='')
     contig_parser = create_contig_arguments(params, contig_parser)
     contig_parser.set_defaults(func = find_contig_amrs_init)
@@ -91,7 +91,7 @@ def main():
     log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
     initialize_logger(args.main_dir, log_name)
     logging.info(str(params.__dict__))
-    args.func(args,params)
+    args.func(args, params)
 
 
 if __name__ == '__main__':

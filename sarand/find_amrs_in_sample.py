@@ -31,7 +31,8 @@ import logging
 import subprocess
 from Bio import SeqIO
 from gfapy.sequence import rc
-from utils import create_fasta_file, annotate_sequence, split_up_down_info,\
+
+from sarand.utils import create_fasta_file, annotate_sequence, split_up_down_info,\
             similar_seq_annotation_already_exist, restricted_amr_name_from_modified_name,\
             amr_name_from_comment, initialize_logger, extract_files, concatenate_files,\
 			str2bool

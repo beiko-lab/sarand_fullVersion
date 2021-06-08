@@ -46,12 +46,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import math
 
-from params import Pipeline_tasks, Insertion_type, Assembler_name
-from extract_neighborhood import neighborhood_graph_extraction, neighborhood_sequence_extraction,\
+
+from sarand.params import Pipeline_tasks, Insertion_type, Assembler_name
+from sarand.extract_neighborhood import neighborhood_graph_extraction, neighborhood_sequence_extraction,\
 							extract_amr_neighborhood_in_ref_genome
-from find_seq_in_contigs import find_sequence_match
-from annotation_visualization import visualize_annotation
-from utils import initialize_logger, check_reads, str2bool, print_params, verify_file_existence,\
+from sarand.find_seq_in_contigs import find_sequence_match
+from sarand.annotation_visualization import visualize_annotation
+from sarand.utils import initialize_logger, check_reads, str2bool, print_params, verify_file_existence,\
 			retrieve_AMR, extract_files, create_fasta_file, extract_amr_names_from_alignment_files,\
 			annotate_sequence, split_up_down_info, unnamed_genes_are_siginificantly_similar,\
 			seqs_annotation_are_identical, similar_seq_annotation_already_exist,\
@@ -62,7 +63,7 @@ from utils import initialize_logger, check_reads, str2bool, print_params, verify
 			read_path_info_from_align_file, concatenate_files, read_path_info_from_align_file_with_multiple_amrs,\
 			extract_path_info_for_amrs, compare_two_sequences, split_up_down_seq,\
 			delete_lines_started_with
-from find_amrs_in_sample import find_annotate_amrs_in_ref
+from sarand.find_amrs_in_sample import find_annotate_amrs_in_ref
 
 ASSEMBLY_FILE = 'assembly_graph_with_scaffolds.gfa'
 CONTIG_FILE = 'contigs.fasta'

@@ -31,12 +31,13 @@ from csv import DictReader
 import logging
 import pandas as pd
 
-from utils import extract_files, retrieve_AMR, read_ref_annotations_from_db,\
+from sarand import utils, extract_neighborhood
+from sarand.utils import extract_files, retrieve_AMR, read_ref_annotations_from_db,\
 		extract_up_down_from_csv_file, seqs_annotation_are_identical,\
 		similar_seq_annotation_already_exist, split_up_down_info, annotate_sequence,\
 		retreive_original_amr_name, extract_name_from_file_name, initialize_logger,\
 		restricted_amr_name_from_modified_name, str2bool
-from extract_neighborhood import extract_amr_neighborhood_in_ref_genome
+from sarand.extract_neighborhood import extract_amr_neighborhood_in_ref_genome
 
 NOT_FOUND_FILE = 'not_found_amrs_in_contigs.txt'
 
