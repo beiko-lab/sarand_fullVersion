@@ -44,8 +44,8 @@ def show_images(image_list, main_title, output, cols = 1, title_list = None):
 		ax = plt.gca()
 		ax.axes.xaxis.set_ticks([])
 		ax.axes.yaxis.set_ticks([])
-		plt.xlabel(title, size = 22)
-	fig.suptitle(main_title, size = 38)
+		plt.xlabel(title, size = 12)
+	fig.suptitle(main_title, size = 18)
 	fig.set_size_inches(np.array(fig.get_size_inches()) * n_images)
 	plt.savefig(output)
 
@@ -64,7 +64,9 @@ def extract_annotation_from_csv(input_csv_file):
 	with open(input_csv_file, 'r') as myfile:
 		myreader = DictReader(myfile)
 		old_seq = ''
+		has_row = False
 		for row in myreader:
+			has_row = True
 			if row['coverage']!='':
 				coverage = ' ('+str(round(float(row['coverage']), 2))+')'
 			else:
@@ -81,6 +83,9 @@ def extract_annotation_from_csv(input_csv_file):
 				seq_length_list.append(int(row['seq_length']))
 			seq_info.append(gene_info)
 		seq_info_list.append(seq_info)
+	if not has_row:
+		logging.error("there is no sequence to visualize!")
+		return [], [], []
 	if len(seq_info_list)>20:
 		logging.error("there are more than 20 sequences to visualize!")
 		return [], [], []

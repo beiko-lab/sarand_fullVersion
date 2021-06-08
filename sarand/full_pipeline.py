@@ -2752,7 +2752,6 @@ def seq_annotation_trim_main(params, amr_files, all_seq_info_lists,
 					visual_annotation_csv = coverage_annotation
 				else:
 					visual_annotation_csv = annotation_files[i]
-
 			visual_annotation = annotate_dir+'/gene_comparison_'+str(params.coverage_thr)+'_'+restricted_amr_name+'.png'
 			visualize_annotation(visual_annotation_csv, output=visual_annotation)
 		if params.coverage_thr>0:
