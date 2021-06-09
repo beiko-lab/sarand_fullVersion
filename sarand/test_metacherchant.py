@@ -95,7 +95,7 @@ def main():
                     path_info_file, params.seq_length, [], [], params.output_dir,
                     params.PROKKA_COMMAND_PREFIX,params.use_RGI,
                     params.RGI_include_loose, '_'+str(i+163)+restricted_amr_name,
-                    params.amr_identity_threshold, False)
+                    False)
             #Evaluation
             logging.info('Evaluation ...')
             sensitivity, precision = evaluate_sequences_up_down_based_on_coverage(

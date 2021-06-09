@@ -1592,7 +1592,7 @@ def neighborhood_annotation_parallel(amr_name, neighborhood_seq_file,
 								ref_up_info_list, ref_down_info_list,
 								output_dir, prokka_prefix, use_RGI = True,
 								RGI_include_loose = False, output_name ='',
-								amr_threshold = 95, ref_genomes_available = True,
+								ref_genomes_available = True,
 								core_num = 4):
 	"""
 	To annotate reference genomes (a piece extracted around the AMR gene) as well as
@@ -1609,7 +1609,6 @@ def neighborhood_annotation_parallel(amr_name, neighborhood_seq_file,
 		use_RGI:	RGI annotations incorporated for AMR annotation
 		RGI_include_loose: Whether to include loose annotaions in RGI
 		output_name:the name used to distinguish different output files usually based on the name of AMR
-		amr_threshold: the threshold used for identity and coverage
 	Return:
 		the address of files stroing annotation information (annotation_detail_name,
 			trimmed_annotation_info, gene_file_name, product_file_name, visual_annotation)
@@ -1743,7 +1742,7 @@ def neighborhood_annotation(amr_name, neighborhood_seq_file,
 								ref_up_info_list, ref_down_info_list,
 								output_dir, prokka_prefix, use_RGI = True,
 								RGI_include_loose = False, output_name ='',
-								amr_threshold = 95, ref_genomes_available = True):
+								ref_genomes_available = True):
 	"""
 	To annotate reference genomes (a piece extracted around the AMR gene) as well as
 		extracted neighborhood sequences from assembly graph, summarize the results
@@ -1761,7 +1760,6 @@ def neighborhood_annotation(amr_name, neighborhood_seq_file,
 		use_RGI:	RGI annotations incorporated for AMR annotation
 		RGI_include_loose: Whether to include loose annotaions in RGI
 		output_name:the name used to distinguish different output files usually based on the name of AMR
-		amr_threshold: the threshold used for identity and coverage
 	Return:
 		the address of files storing annotation information (annotation_detail_name,
 			trimmed_annotation_info, gene_file_name, product_file_name, visual_annotation)
@@ -2816,8 +2814,7 @@ def seq_annotation_main(params, seq_files, path_info_files, amr_files):
 					ref_up_info_list, ref_down_info_list,
 					params.output_dir, params.PROKKA_COMMAND_PREFIX,params.use_RGI,
 					params.RGI_include_loose, '_'+restricted_amr_name,
-					params.amr_identity_threshold, params.ref_genomes_available,
-					params.core_num)
+					params.ref_genomes_available,params.core_num)
 		else:
 			all_seq_info_list, annotation_file =\
 				neighborhood_annotation(amr_name, neighborhood_file,
@@ -2825,7 +2822,7 @@ def seq_annotation_main(params, seq_files, path_info_files, amr_files):
 					ref_up_info_list, ref_down_info_list,
 					params.output_dir, params.PROKKA_COMMAND_PREFIX,params.use_RGI,
 					params.RGI_include_loose, '_'+restricted_amr_name,
-					params.amr_identity_threshold, params.ref_genomes_available)
+					params.ref_genomes_available)
 		all_seq_info_lists.append(all_seq_info_list)
 		annotation_files.append(annotation_file)
 
