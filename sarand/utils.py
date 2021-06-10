@@ -918,13 +918,14 @@ def delete_lines_started_with(ch, filename):
 	# command = "sed -i '/^P/d' " + file_name
 	# os.system(command)
 	file1 = open(filename, 'r')
-	file2 = open('temp.txt', 'w')
+	#file2 = open('temp.txt', 'w')
+	file2 = open('temp_'+os.path.basename(filename), 'w')
 	for line in file1.readlines():
 		if not (line.startswith(ch)):
 			file2.write(line)
 	file1.close()
 	file2.close()
-	os.rename('temp.txt', filename)
+	os.rename('temp_'+os.path.basename(filename), filename)
 
 def delete_a_string_from_file(ch, filename):
 	"""
@@ -935,8 +936,9 @@ def delete_a_string_from_file(ch, filename):
 	"""
 	# command = "sed -i 's/*//g' " + input_file
 	# os.system(command)
-	with open(filename, 'r') as infile, open('temp.txt', 'w') as outfile:
+	#with open(filename, 'r') as infile, open('temp.txt', 'w') as outfile:
+	with open(filename, 'r') as infile, open('temp_'+os.path.basename(filename), 'w') as outfile:
 		data = infile.read()
 		data = data.replace(ch,'')
 		outfile.write(data)
-	os.rename('temp.txt', filename)
+	os.rename('temp_'+os.path.basename(filename), filename)

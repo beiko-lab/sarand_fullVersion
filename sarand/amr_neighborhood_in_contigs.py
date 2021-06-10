@@ -13,7 +13,8 @@ NOTE: It reads required parameters from params.py and the most important paramet
 to be set correctly there are:
 params.seq_length, params.contig_file, params.amr_identity_threshold, params.amr_files,
 params.ref_ng_annotations_file, params.main_dir, params.output_dir,
-params.PROKKA_COMMAND_PREFIX, params.use_RGI,params.RGI_include_loose
+params.PROKKA_COMMAND_PREFIX, params.use_RGI,params.RGI_include_loose,
+params.ref_genomes_available
 NOTE: The result are available in the following directory:
 params.output_dir+'contigs_output_'+str(params.seq_length)
 
@@ -31,13 +32,14 @@ from csv import DictReader
 import logging
 import pandas as pd
 
-from sarand import utils, extract_neighborhood
+from sarand import utils, extract_neighborhood, find_amrs_in_sample
 from sarand.utils import extract_files, retrieve_AMR, read_ref_annotations_from_db,\
 		extract_up_down_from_csv_file, seqs_annotation_are_identical,\
 		similar_seq_annotation_already_exist, split_up_down_info, annotate_sequence,\
 		retreive_original_amr_name, extract_name_from_file_name, initialize_logger,\
 		restricted_amr_name_from_modified_name, str2bool
 from sarand.extract_neighborhood import extract_amr_neighborhood_in_ref_genome
+from sarand.find_amrs_in_sample import find_all_amrs_and_neighborhood
 
 NOT_FOUND_FILE = 'not_found_amrs_in_contigs.txt'
 
@@ -218,65 +220,116 @@ def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_l
 
 	return sensitivity, precision
 
-def find_contig_amrs_main(args):
+def annotate_sequence_bundle(contig_ng_info, out_dir, prokka_prefix, use_RGI,
+								RGI_include_loose):
 	"""
 	"""
-	#extracting all amr files
-	amr_files = extract_files(args.amr_files, 'please provide the address of the AMR gene(s)')
-	#creating a directory for results
-	contig_dir = args.output_dir+'contigs_output_'+str(args.seq_length)
-	if not os.path.exists(contig_dir):
-		os.makedirs(contig_dir)
-	#set up the file to store the summary metrics
-	summary_file = contig_dir+'/contig_summaryMetrics_up_down_'+\
-	datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
-	with open(summary_file,'a') as fd:
-		writer = csv.writer(fd)
-		writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
-	found_file = contig_dir + '/'+NOT_FOUND_FILE
-	# create a db from contig file
-	db_command = subprocess.run(["makeblastdb","-in", args.contig_file, "-parse_seqids",
-								"-dbtype", "nucl"], stdout=subprocess.PIPE, check= True)
-	logging.info(db_command.stdout.decode('utf-8'))
-	# command = 'makeblastdb -in '+args.contig_file +' -parse_seqids -dbtype nucl'
-	# os.system(command)
-	#to find the annotation of ref genomes for all AMRs
-	df = pd.read_csv(args.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
-	amr_groups = df.groupby('target_amr')
-	#Going over amrs one by one to extract their neighborhood and annotate and evaluate
-	average_precision = 0
-	average_sensitivity = 0
-	for amr_file in amr_files:
-		restricted_amr_name = extract_name_from_file_name(amr_file)
-		mydir = contig_dir+'/'+restricted_amr_name
-		amr_seq, amr_name = retrieve_AMR(amr_file)
-		if not os.path.exists(mydir):
-			os.makedirs(mydir)
-		annotation_file_name =mydir+'/contig_annotation_'+restricted_amr_name+'_'+str(args.seq_length)+'.csv'
+	annotate_dir = out_dir+'contig_annotations/'
+	if not os.path.exists(annotate_dir):
+		os.makedirs(annotate_dir)
+	for amr_info_list in contig_ng_info:
+		amr_name = amr_info_list[0]
+		restricted_amr_name = restricted_amr_name_from_modified_name(amr_name)
+		# mydir = annotate_dir+restricted_amr_name
+		# if not os.path.exists(mydir):
+		# 	os.makedirs(mydir)
+		annotation_file_name =annotate_dir+'/contig_annotation_'+restricted_amr_name+'.csv'
 		with open(annotation_file_name, 'a') as fd:
 			writer = csv.writer(fd)
 			writer.writerow(['seq_name', 'seq_value', 'seq_length', 'gene', 'prokka_gene_name',
 							'product', 'length', 'start_pos', 'end_pos', 'RGI_prediction_type',
 							 'family', 'target_amr'])
-		#Read ref neighborhood annotations from corresponding file
-		ref_up_info_list, ref_amr_info_list, ref_down_info_list =\
-			read_ref_annotations_from_db(amr_groups, amr_name)
-		#extract neighborhoods in contigs and annotate
-		up_info_list, down_info_list, amr_info_list, seq_info_list =\
-			extract_seq_neighborhood_and_annotate(amr_seq, amr_name, args.seq_length,
-								args.contig_file, args.amr_identity_threshold, mydir,
-								args.prokka_prefix, args.use_RGI,
-								args.RGI_include_loose, annotation_file_name)
-		original_amr_name = retreive_original_amr_name(amr_name)
-		sensitivity, precision = evaluate_sequences_up_down(original_amr_name, summary_file,
-									up_info_list, down_info_list, amr_info_list,
-									ref_up_info_list, ref_down_info_list, ref_amr_info_list,
-									found_file)
-		average_precision+=precision
-		average_sensitivity+=sensitivity
-		logging.info('For "'+amr_name+'": sensitivity= '+str(sensitivity)+' precision = '+ str(precision))
+		for index, amr_info in enumerate(amr_info_list[1]):
+			contig_name = amr_info['contig']
+			seq = amr_info['seq']
+			seq_description = 'contig_'+amr_name+'_'+contig_name.replace(' ','_').replace('.','').replace(',','')
+			annotation_prefix = 'contig_'+ restricted_amr_name +'__'+str(index)
+			seq_info = annotate_sequence(seq+"\n", annotation_prefix, annotate_dir,
+                    prokka_prefix, use_RGI, RGI_include_loose)
+			found, _ , _, _, _ = split_up_down_info(seq, seq_info)
+			if not found:
+				logging.error("no target amr was found in this contig sequence: "+contig_name)
+			with open(annotation_file_name, 'a') as fd:
+				writer = csv.writer(fd)
+				for gene_info in seq_info:
+					writer.writerow([seq_description, gene_info['seq_value'],
+										len(gene_info['seq_value']),
+										gene_info['gene'], gene_info['prokka_gene_name'],
+										gene_info['product'], gene_info['length'],
+										gene_info['start_pos'], gene_info['end_pos'],
+										gene_info['RGI_prediction_type'],
+										gene_info['family'], gene_info['target_amr']])
+		logging.info("NOTE: The annotation of neighborhood sequences in contigs for "+\
+			amr_name+"has been stroed in " + annotation_file_name)
 
-	logging.info('average precision: '+str(average_precision/len(amr_files))+'\naverage sensitivity: '+ str(average_sensitivity/len(amr_files)))
+def find_contig_amrs_main(args):
+	"""
+	"""
+	#creating a directory for results
+	contig_dir = args.output_dir+'contigs_output_'+str(args.seq_length)+'/'
+	if not os.path.exists(contig_dir):
+		os.makedirs(contig_dir)
+	found_file = contig_dir +NOT_FOUND_FILE
+
+	if args.ref_genomes_available:
+		#extracting all amr files
+		amr_files = extract_files(args.amr_files, 'please provide the address of the AMR gene(s)')
+		# create a db from contig file
+		db_command = subprocess.run(["makeblastdb","-in", args.contig_file, "-parse_seqids",
+									"-dbtype", "nucl"], stdout=subprocess.PIPE, check= True)
+		logging.info(db_command.stdout.decode('utf-8'))
+		# command = 'makeblastdb -in '+args.contig_file +' -parse_seqids -dbtype nucl'
+		# os.system(command)
+		#to find the annotation of ref genomes for all AMRs
+		#set up the file to store the summary metrics
+		summary_file = contig_dir+'contig_summaryMetrics_up_down_'+\
+		datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
+		with open(summary_file,'a') as fd:
+			writer = csv.writer(fd)
+			writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
+		df = pd.read_csv(args.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
+		amr_groups = df.groupby('target_amr')
+		#Going over amrs one by one to extract their neighborhood and annotate and evaluate
+		average_precision = 0
+		average_sensitivity = 0
+		for amr_file in amr_files:
+			restricted_amr_name = extract_name_from_file_name(amr_file)
+			mydir = contig_dir+restricted_amr_name
+			amr_seq, amr_name = retrieve_AMR(amr_file)
+			if not os.path.exists(mydir):
+				os.makedirs(mydir)
+			annotation_file_name =mydir+'/contig_annotation_'+restricted_amr_name+'_'+str(args.seq_length)+'.csv'
+			with open(annotation_file_name, 'a') as fd:
+				writer = csv.writer(fd)
+				writer.writerow(['seq_name', 'seq_value', 'seq_length', 'gene', 'prokka_gene_name',
+								'product', 'length', 'start_pos', 'end_pos', 'RGI_prediction_type',
+								 'family', 'target_amr'])
+			#extract neighborhoods in contigs and annotate
+			up_info_list, down_info_list, amr_info_list, seq_info_list =\
+				extract_seq_neighborhood_and_annotate(amr_seq, amr_name, args.seq_length,
+									args.contig_file, args.amr_identity_threshold, mydir,
+									args.prokka_prefix, args.use_RGI,
+									args.RGI_include_loose, annotation_file_name)
+			#Read ref neighborhood annotations from corresponding file
+			ref_up_info_list, ref_amr_info_list, ref_down_info_list =\
+				read_ref_annotations_from_db(amr_groups, amr_name)
+			original_amr_name = retreive_original_amr_name(amr_name)
+			sensitivity, precision = evaluate_sequences_up_down(original_amr_name, summary_file,
+										up_info_list, down_info_list, amr_info_list,
+										ref_up_info_list, ref_down_info_list, ref_amr_info_list,
+										found_file)
+			average_precision+=precision
+			average_sensitivity+=sensitivity
+			logging.info('For "'+amr_name+'": sensitivity= '+str(sensitivity)+' precision = '+ str(precision))
+		logging.info('average precision: '+str(average_precision/len(amr_files))+'\naverage sensitivity: '+ str(average_sensitivity/len(amr_files)))
+	else:
+		#read card sequences and do neighborhood extraction and annotations for blast hits
+		contig_ng_info = find_all_amrs_and_neighborhood(args.card_seqs, args.contig_file,
+										contig_dir, args.seq_length,
+										args.amr_identity_threshold, type='contig')
+		annotate_sequence_bundle(contig_ng_info, contig_dir, args.prokka_prefix,
+									args.use_RGI, args.RGI_include_loose)
+	logging.info("neighborhood extraction and annotation from cotigs is done!")
 
 def create_contig_arguments(params, parser):
 	"""
@@ -301,6 +354,10 @@ def create_contig_arguments(params, parser):
 		help = 'Whether to include loose cases in RGI result')
 	parser.add_argument('--prokka_prefix', type = str, default = params.PROKKA_COMMAND_PREFIX,
 		help = 'Set only if prokka is run through docker')
+	parser.add_argument('--ref_genomes_available', type = str2bool, default = params.ref_genomes_available,
+		help = 'Whether we have access to reference genome(s)')
+	parser.add_argument('--card_seqs', type=str, default = params.CARD_AMR_SEQUENCES,
+		help = 'the path of the fasta file containing all AMR sequences')
 
 	return parser
 

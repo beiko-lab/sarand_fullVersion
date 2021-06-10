@@ -1831,7 +1831,10 @@ def is_there_amr_in_graph_check_longer_paths_incrementally(amr_name, gfa_file, o
 		if os.path.isfile(output_name+'.tsv'):
 			os.remove(output_name+'.tsv')
 		bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, amr_file,
-							output_name, "--pathnodes", str(path_nodes)], stdout=subprocess.PIPE, check= True )
+							output_name, "--pathnodes", str(path_nodes), "--minpatcov",
+							str((threshold-1)/100.0), "--minmeanid", str((threshold-1)/100.0),
+							"--minhitcov", str((threshold-1)/100.0)],
+							stdout=subprocess.PIPE, check= True )
 		logging.info(bandage_command.stdout.decode('utf-8'))
 		# command = bandage_path +' querypaths ' + gfa_file+' '+amr_file+' '+output_name +\
 		# ' --pathnodes '+str(path_nodes)
@@ -1867,7 +1870,10 @@ def is_there_amr_in_graph(gfa_file, output_dir, bandage_path, threshold, amr_fil
 	if os.path.isfile(output_name+'.tsv'):
 		os.remove(output_name+'.tsv')
 	bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, amr_file,
-						output_name, "--pathnodes", "50"], stdout=subprocess.PIPE, check= True )
+						output_name, "--pathnodes", "50", "--minpatcov",
+						str((threshold-1)/100.0), "--minmeanid", str((threshold-1)/100.0),
+						"--minhitcov", str((threshold-1)/100.0)],
+						stdout=subprocess.PIPE, check= True )
 	logging.info(bandage_command.stdout.decode('utf-8'))
 	# command = bandage_path +' querypaths '+gfa_file+' '+amr_file+' '+output_name + ' --pathnodes 50'
 	# os.system(command)
@@ -1935,7 +1941,10 @@ def are_there_amrs_in_graph(gfa_file, output_dir, bandage_path, threshold, amr_o
 	if os.path.isfile(output_name+'.tsv'):
 		os.remove(output_name+'.tsv')
 	bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, cat_file,
-						output_name, "--pathnodes", "50"], stdout=subprocess.PIPE, check= True )
+						output_name, "--pathnodes", "50", "--minpatcov",
+						str((threshold-1)/100.0), "--minmeanid", str((threshold-1)/100.0),
+						"--minhitcov", str((threshold-1)/100.0)],
+						stdout=subprocess.PIPE, check= True )
 	logging.info(bandage_command.stdout.decode('utf-8'))
 	# command = bandage_path +' querypaths '+gfa_file+' '+cat_file+' '+output_name + ' --pathnodes 50'
 	# os.system(command)

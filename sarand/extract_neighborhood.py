@@ -1474,7 +1474,10 @@ def find_amr_related_nodes(amr_file, gfa_file, output_dir, bandage_path = BANDAG
 		if os.path.isfile(output_name+'.tsv'):
 			os.remove(output_name+'.tsv')
 		bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, amr_file,
-						output_name, "--pathnodes", "50"], stdout=subprocess.PIPE, check= True )
+						output_name, "--pathnodes", "50", "--minpatcov",
+						str((threshold-1)/100.0), "--minmeanid", str((threshold-1)/100.0),
+						"--minhitcov", str((threshold-1)/100.0)],
+						stdout=subprocess.PIPE, check= True )
 		logging.info(bandage_command.stdout.decode('utf-8'))
 		# command = bandage_path +' querypaths '+gfa_file+' '+amr_file+' '+output_name + ' --pathnodes 50'
 		# os.system(command)

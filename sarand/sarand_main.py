@@ -51,7 +51,7 @@ def find_contig_amrs_init(args, params):
     find_contig_amrs_main(args)
 
 def main():
-    parser = argparse.ArgumentParser(description="extract the neighborhood of the "
+    parser = argparse.ArgumentParser(description="Extract the neighborhood of the "
                                         "target Antimicrobial Resistance (AMR) "
                                         "genes from the assembly graph.",
                                         prog='sarand',
@@ -87,6 +87,10 @@ def main():
     contig_parser.set_defaults(func = find_contig_amrs_init)
 
     args = parser.parse_args()
+    #If no argument has been passed
+    if not len(sys.argv) > 1:
+        print("Please use -h option to access usage information!")
+        sys.exit()
     #logging file
     log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
     initialize_logger(args.main_dir, log_name)

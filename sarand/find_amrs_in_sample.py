@@ -136,13 +136,14 @@ def extract_amr_length(amr_sequences_file):
     return amr_objects
 
 def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, out_dir,
-									neighborhood_len = 1000, threshold = 95):
+									neighborhood_len = 1000, threshold = 95,
+									type = 'ref'):
 	"""
 	"""
 	if genome_file == '':
-		logging.error('Please enter the address of reference genome(s)!')
+		logging.error('Please enter the address of '+type+' file!')
 		sys.exit()
-	blast_file_name = out_dir+'blast_out.csv'
+	blast_file_name = out_dir+'blast_out_'+type+'.csv'
 	if not os.path.isfile(blast_file_name):
 		# Find the length of each AMR sequence
 		amr_objects = extract_amr_length(amr_sequences_file)
@@ -150,24 +151,13 @@ def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, out_dir,
 		db_command = subprocess.run(["makeblastdb","-in", genome_file, "-parse_seqids",
 								"-dbtype", "nucl"], stdout=subprocess.PIPE, check= True)
 		logging.info(db_command.stdout.decode('utf-8'))
-		# command = 'makeblastdb -in '+genome_file +' -parse_seqids -dbtype nucl'
-		# os.system(command)
-        #Run Blastn
-        # command = 'blastn -query '+amr_sequences_file+' -db '+genome_file+\
-        #     ' -task blastn -outfmt 10 -evalue 0.5 -perc_identity '+str(threshold-1)+\
-        #     ' -num_threads 4 > '+ blast_file_name
 		blast_file = open(blast_file_name, "w")
 		blast_command = subprocess.run(["blastn", "-query", amr_sequences_file, "-db", genome_file,
 						"-outfmt", "10", "-evalue", "0.5", "-perc_identity", str(threshold-1),
 						"-num_threads", "4"], stdout=blast_file, check= True)
 		blast_file.close()
-		# command = 'blastn -query '+amr_sequences_file+' -db '+genome_file+\
-        #     ' -outfmt 10 -evalue 0.5 -perc_identity '+str(threshold-1)+\
-        #     ' -num_threads 4 > '+ blast_file_name
-		# os.system(command)
-
 	AMR_dir = out_dir+'sequences/'
-	ng_file = out_dir+'AMR_ref_neighborhood.fasta'
+	ng_file = out_dir+'AMR_'+type+'_neighborhood.fasta'
 	if not os.path.exists(AMR_dir) or not os.path.isfile(ng_file):
 		#Read the blast result
 		amr_list = []
