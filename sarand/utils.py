@@ -21,6 +21,8 @@ import collections
 import shutil
 import subprocess
 
+from sarand.params import Pipeline_tasks
+
 AMR_FAMILY_INFO = 'aro_index.tsv'
 
 def extract_name_from_file_name(file_name):
@@ -76,6 +78,54 @@ def create_fasta_file(seq, output_dir, comment = "> sequence:\n", file_name = 't
 	myfile.close()
 	return  myfile_name
 
+def validate_task_values(tasks):
+	"""
+	To check if the task(s) entered by the user are valid
+	Parameter:
+		tasks: it's either a number representing the task number valid in Pipeline_tasks
+			or two numbers denoting the start and end task which are valid values in Pipeline_tasks
+	Return:
+		the list of tasks to be done
+		For example if tasks =[1, 4] return [1, 2, 3, 4]
+		special case: tasks = [0] return [1, 2, 3, 4, 5, 6]
+	"""
+	task_error_message = "For the entire pipeline choose "+str(Pipeline_tasks.all.value)+"; otherwise\
+	either provide a number representing one of the following tasks or two numbers\
+	to denote the start and end tasks (and of course all tasks in the middle will be run).\n \
+	Here is the list:\nmetagenome_creation = "+str(Pipeline_tasks.metagenome_creation.value)+\
+	"\nread_simulation = "+str(Pipeline_tasks.read_simulation.value)+\
+	"\nassembly = "+str(Pipeline_tasks.assembly.value)+\
+	"\ngraph_neighborhood = "+str(Pipeline_tasks.graph_neighborhood.value)+\
+	"\nsequence_neighborhood = "+str(Pipeline_tasks.sequence_neighborhood.value)+\
+	"\nneighborhood_annotation = "+str(Pipeline_tasks.neighborhood_annotation.value)+\
+	"\nneighborhood_evaluation = "+str(Pipeline_tasks.neighborhood_evaluation.value)
+	#"\ncontig_matching = "+str(Pipeline_tasks.contig_matching.value)+\
+	task_list = []
+	if len(tasks) > 2:
+		logging.error("ERROR: There are more than two numbers in the task list!\n" + task_error_message)
+		import pdb; pdb.set_trace()
+		sys.exit()
+
+	valid_task_values = [item.value for item in Pipeline_tasks]
+	for task in tasks:
+		if int(task) not in valid_task_values:
+			logging.error("ERROR: invalid task number(s)!\n" + task_error_message)
+			import pdb; pdb.set_trace()
+			sys.exit()
+
+	if len(tasks)==2 and int(tasks[0])>int(tasks[1]):
+		logging.error("ERROR: The first task number should be smaller than the second task\
+		 in the list!\n" + task_error_message)
+		import pdb; pdb.set_trace()
+		sys.exit()
+
+	if len(tasks)==1 and int(tasks[0])==Pipeline_tasks.all.value:
+		return valid_task_values
+	if len(tasks)==1:
+		return [int(tasks[0])]
+	for task in list(range(int(tasks[0]), int(tasks[1])+1)):
+		task_list.append(task)
+	return task_list
 
 def initialize_logger(output_dir, file_name = 'logfile.log'):
 	"""
@@ -99,6 +149,34 @@ def initialize_logger(output_dir, file_name = 'logfile.log'):
 	console_handler = logging.StreamHandler(sys.stdout)
 	console_handler.setFormatter(log_formatter)
 	root_logger.addHandler(console_handler)
+
+def print_parameters(params, func):
+	"""
+	"""
+	logging.info("multi_processor: "+str(params.multi_processor)+", core_num: "+str(params.core_num))
+	logging.info("amr_identity_threshold: "+str(params.amr_identity_threshold))
+	logging.info("neighborhood_seq_length: "+str(params.seq_length))
+	logging.info("use_RGI: "+str(params.use_RGI))
+	logging.info("RGI_include_loose: "+str(params.RGI_include_loose))
+	logging.info("main_dir: "+params.main_dir)
+	logging.info("ref_genomes_available: "+str(params.ref_genomes_available))
+	if func=="full_pipeline":
+		task_num_list = validate_task_values(params.task)
+		task_list = [Pipeline_tasks(task).name for task in task_num_list]
+		logging.info("tasks: "+str(task_list))
+		logging.info("coverage_thr: "+str(params.coverage_thr))
+		if Pipeline_tasks.read_simulation.value in task_num_list:
+			logging.info("read_length: "+str(params.read_length))
+		elif Pipeline_tasks.assembly.value in task_num_list:
+			logging.info("reads: "+params.reads)
+		if Pipeline_tasks.assembly.value in task_num_list:
+			logging.info("spades_thread_num: "+str(params.spades_thread_num))
+			logging.info("assembler: "+params.assembler.name)
+			logging.info("spades_error_correction: "+str(params.spades_error_correction))
+	if func=="find_contig_amrs":
+		logging.info("contig_file: "+params.contig_file)
+	if func=="find_ref_amrs":
+		logging.info("ref_genome_file(s): "+params.ref_genome_files)
 
 def check_reads(v):
 	if isinstance(v, str):

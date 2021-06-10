@@ -8,8 +8,9 @@ import shutil
 
 from sarand import params, full_pipeline, utils, find_amrs_in_sample, amr_neighborhood_in_contigs
 from sarand.__init__ import __version__
-from sarand.full_pipeline import create_arguments, modify_params, full_pipeline_main
-from sarand.utils import initialize_logger
+from sarand.full_pipeline import create_arguments, update_full_pipeline_params,\
+                            full_pipeline_main
+from sarand.utils import initialize_logger, print_parameters
 from sarand.find_amrs_in_sample import create_ref_arguments, find_ref_amrs_main
 from sarand.amr_neighborhood_in_contigs import create_contig_arguments, find_contig_amrs_main
 
@@ -26,7 +27,8 @@ def full_pipeline_init(args, params):
     #         logging.error("Error: %s - %s." % (e.filename, e.strerror))
     #     os.makedirs(args.output_dir)
     logging.info('Running full_pipeline ...')
-    params = modify_params(params, args)
+    params = update_full_pipeline_params(params, args)
+    print_parameters(params, "full_pipeline")
     full_pipeline_main(params)
 
 def find_ref_amrs_init(args, params):
@@ -42,12 +44,14 @@ def find_ref_amrs_init(args, params):
     #         logging.error("Error: %s - %s." % (e.filename, e.strerror))
     #     os.makedirs(args.output_dir)
     logging.info("Running find_amrs_in_sample ...")
+    print_parameters(params, "find_ref_amrs")
     find_ref_amrs_main(args)
 
 def find_contig_amrs_init(args, params):
     """
     """
     logging.info("Running amr_neighborhood_in_contigs ...")
+    print_parameters(params, "find_contig_amrs")
     find_contig_amrs_main(args)
 
 def main():
@@ -94,7 +98,7 @@ def main():
     #logging file
     log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
     initialize_logger(args.main_dir, log_name)
-    logging.info(str(params.__dict__))
+    #logging.info(str(params.__dict__))
     args.func(args, params)
 
 

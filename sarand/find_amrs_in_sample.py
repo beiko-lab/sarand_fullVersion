@@ -292,7 +292,7 @@ def find_ref_amrs_main(args):
 def create_ref_arguments(params, parser):
 	"""
 	"""
-	parser.add_argument('--db', type=str, default='',
+	parser.add_argument('--db', type=str, default=params.ref_genome_files,
 		help='the path of the file or directory containing the (meta)genome sample')
 	parser.add_argument('--seq', type=str, default = params.CARD_AMR_SEQUENCES,
 		help = 'the path of the fasta file containing all AMR sequences')
