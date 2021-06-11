@@ -6,19 +6,19 @@ Purpose:	To find all AMRs available in a metagenome sample,
 	extract their neighborhood sequences and annotate them.
 
 To run:
-	python find_amrs_in_sample.py --db <metagenome file path>
-    --seq <fasta file containing all AMR sequences>
+	python find_amrs_in_sample.py --ref_genome_files <metagenome file path>
+    --amr_db <fasta file containing all AMR sequences>
 Note: it reads 3 parameetrs from params.py:
 	- params.PROKKA_COMMAND_PREFIX
 	- params.use_RGI
 	- params.RGI_include_loose
-	- params.CARD_AMR_SEQUENCES
+	- params.amr_db
 	- params.main_dir
 	- params.output_dir
 """
 #python /media/Data/PostDoc/Dalhousie/Work/Test1/codes/AMR_context/find_amrs_in_sample.py
-#--db /media/Data/PostDoc/Dalhousie/Work/Test2/Experiments/1_1_1_limit/metagenome.fasta
-#--seq /media/Data/PostDoc/Dalhousie/Work/Test2/nucleotide_fasta_protein_homolog_model_without_efflux_without_space.fasta
+#--ref_genome_files /media/Data/PostDoc/Dalhousie/Work/Test2/Experiments/1_1_1_limit/metagenome.fasta
+#--amr_db /media/Data/PostDoc/Dalhousie/Work/Test2/nucleotide_fasta_protein_homolog_model_without_efflux_without_space.fasta
 ################################################################################
 
 import sys
@@ -35,7 +35,7 @@ from gfapy.sequence import rc
 from sarand.utils import create_fasta_file, annotate_sequence, split_up_down_info,\
             similar_seq_annotation_already_exist, restricted_amr_name_from_modified_name,\
             amr_name_from_comment, initialize_logger, extract_files, concatenate_files,\
-			str2bool
+			str2bool, print_parameters
 
 AMR_DIR_NAME = 'AMR_info/'
 
@@ -280,11 +280,11 @@ def find_annotate_amrs_in_ref(seq, db, prokka_prefix, use_RGI, RGI_include_loose
 		logging.error("Not enough arguments to run the code!")
 		return -1
 
-def find_ref_amrs_main(args):
+def find_ref_amrs_main(params):
 	"""
 	"""
-	if find_annotate_amrs_in_ref(args.seq, args.db, args.prokka_prefix, args.use_RGI,
-									args.RGI_include_loose, args.output_dir)==-1:
+	if find_annotate_amrs_in_ref(params.amr_db, params.ref_genome_files, params.PROKKA_COMMAND_PREFIX,
+							params.use_RGI, params.RGI_include_loose, params.output_dir)==-1:
 		print('please enter the path for the sample file and amr sequences file')
 		import pdb; pdb.set_trace()
 		sys.exit()
@@ -292,22 +292,31 @@ def find_ref_amrs_main(args):
 def create_ref_arguments(params, parser):
 	"""
 	"""
-	parser.add_argument('--db', type=str, default=params.ref_genome_files,
+	parser.add_argument('--ref_genome_files', type=str, default=params.ref_genome_files,
 		help='the path of the file or directory containing the (meta)genome sample')
-	parser.add_argument('--seq', type=str, default = params.CARD_AMR_SEQUENCES,
+	parser.add_argument('--amr_db', type=str, default = params.amr_db,
 		help = 'the path of the fasta file containing all AMR sequences')
-	parser.add_argument('--use_RGI', type = str2bool, default = params.use_RGI,
-		help = 'Whether to contribute RGI annotation in Prokka result')
-	parser.add_argument('--RGI_include_loose', type = str2bool, default = params.RGI_include_loose,
-		help = 'Whether to include loose cases in RGI result')
-	parser.add_argument('--prokka_prefix', type = str, default = params.PROKKA_COMMAND_PREFIX,
-		help = 'Set only if prokka is run through docker')
 	parser.add_argument('--main_dir', '-m', type = str, default=params.main_dir,
 		help = 'the main dir to retrieve required files')
-	parser.add_argument('--output_dir', '-O', type = str, default=params.output_dir,
-		help = 'the output dir to store the results')
-
+	# parser.add_argument('--use_RGI', type = str2bool, default = params.use_RGI,
+	# 	help = 'Whether to contribute RGI annotation in Prokka result')
+	# parser.add_argument('--RGI_include_loose', type = str2bool, default = params.RGI_include_loose,
+	# 	help = 'Whether to include loose cases in RGI result')
+	# parser.add_argument('--PROKKA_COMMAND_PREFIX', type = str, default = params.PROKKA_COMMAND_PREFIX,
+	# 	help = 'Set only if prokka is run through docker')
+	# parser.add_argument('--output_dir', '-O', type = str, default=params.output_dir,
+	# 	help = 'the output dir to store the results')
 	return parser
+
+def update_ref_params(params, args):
+	params.ref_genome_files = args.ref_genome_files
+	params.amr_db = args.amr_db
+	params.main_dir = args.main_dir
+	#params.use_RGI = args.use_RGI
+	#params.RGI_include_loose = args.RGI_include_loose
+	#params.PROKKA_COMMAND_PREFIX = args.PROKKA_COMMAND_PREFIX
+	#params.output_dir = args.output_dir
+	return params
 
 if __name__=="__main__":
 	import params
@@ -315,16 +324,18 @@ if __name__=="__main__":
 	parser = argparse.ArgumentParser(description=text)
 	parser = create_ref_arguments(params, parser)
 	args = parser.parse_args()
+	params = update_ref_params(params, args)
 	log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
-	initialize_logger(args.main_dir, log_name)
+	initialize_logger(params.main_dir, log_name)
+	print_parameters(params, "find_ref_amrs")
 	#create the output directory; if it exists, delete it and create a new one
-	if not os.path.exists(args.output_dir):
-		os.makedirs(args.output_dir)
-	else:
-		try:
-			shutil.rmtree(args.output_dir)
-		except OSError as e:
-			logging.error("Error: %s - %s." % (e.filename, e.strerror))
-		os.makedirs(args.output_dir)
+	if not os.path.exists(params.output_dir):
+		os.makedirs(params.output_dir)
+	# else:
+	# 	try:
+	# 		shutil.rmtree(args.output_dir)
+	# 	except OSError as e:
+	# 		logging.error("Error: %s - %s." % (e.filename, e.strerror))
+	# 	os.makedirs(args.output_dir)
 
-	find_ref_amrs_main(args)
+	find_ref_amrs_main(params)

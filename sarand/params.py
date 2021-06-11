@@ -51,7 +51,7 @@ cwd = os.getcwd()
 PROKKA_COMMAND_PREFIX = 'docker run -v '+cwd+':/data staphb/prokka:latest '
 # PROKKA_COMMAND_PREFIX = 'docker run -v `pwd`:/data staphb/prokka:latest '
 
-CARD_AMR_SEQUENCES = pkg_resources.resource_filename(__name__, 'data/CARD_AMR_seq.fasta')
+amr_db = pkg_resources.resource_filename(__name__, 'data/CARD_AMR_seq.fasta')
 main_dir = 'test/'
 output_dir = main_dir+'output_dir/'
 

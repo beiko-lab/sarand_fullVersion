@@ -11,15 +11,17 @@ from sarand.__init__ import __version__
 from sarand.full_pipeline import create_arguments, update_full_pipeline_params,\
                             full_pipeline_main
 from sarand.utils import initialize_logger, print_parameters
-from sarand.find_amrs_in_sample import create_ref_arguments, find_ref_amrs_main
-from sarand.amr_neighborhood_in_contigs import create_contig_arguments, find_contig_amrs_main
+from sarand.find_amrs_in_sample import create_ref_arguments, find_ref_amrs_main,\
+                                    update_ref_params
+from sarand.amr_neighborhood_in_contigs import create_contig_arguments, find_contig_amrs_main,\
+                                            update_contig_params
 
 def full_pipeline_init(args, params):
     """
     """
     #create the output directory; if it exists, delete it and create a new one
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    if not os.path.exists(params.output_dir):
+        os.makedirs(params.output_dir)
     # else:
     #     try:
     #         shutil.rmtree(args.output_dir)
@@ -35,8 +37,8 @@ def find_ref_amrs_init(args, params):
     """
     """
     #create the output directory; if it exists, delete it and create a new one
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    if not os.path.exists(params.output_dir):
+        os.makedirs(params.output_dir)
     # else:
     #     try:
     #         shutil.rmtree(args.output_dir)
@@ -44,15 +46,20 @@ def find_ref_amrs_init(args, params):
     #         logging.error("Error: %s - %s." % (e.filename, e.strerror))
     #     os.makedirs(args.output_dir)
     logging.info("Running find_amrs_in_sample ...")
+    params = update_ref_params(params, args)
     print_parameters(params, "find_ref_amrs")
-    find_ref_amrs_main(args)
+    find_ref_amrs_main(params)
 
 def find_contig_amrs_init(args, params):
     """
     """
+    #create the output directory;
+    if not os.path.exists(params.output_dir):
+        os.makedirs(params.output_dir)
     logging.info("Running amr_neighborhood_in_contigs ...")
+    params = update_contig_params(params, args)
     print_parameters(params, "find_contig_amrs")
-    find_contig_amrs_main(args)
+    find_contig_amrs_main(params)
 
 def main():
     parser = argparse.ArgumentParser(description="Extract the neighborhood of the "
