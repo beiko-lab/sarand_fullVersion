@@ -82,8 +82,7 @@ NOT_FOUND_FILE = 'not_found_amrs_in_graph.txt'
 #To run the code for a list of sequence neighborhood length rather than just one length
 #the default seq length is 1000
 MULTIPLE_SEQ_LENGTH = False
-#To Do the sequence evaluation rather than annotation evaluation
-SEQ_EVAL = False
+seq_eval_ref_subject = True
 
 def find_amrs_not_in_graph(ref_amr_files, amr_names):
 	"""
@@ -597,7 +596,8 @@ def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, 
 	#This shouldn't happen when ref_genome is available!!!
 		with open(summary_file,'a') as fd:
 			writer = csv.writer(fd)
-			writer.writerow([original_amr_name, 0, 0, 0, len(up_info_list)+len(down_info_list),-1, -1])
+			#writer.writerow([original_amr_name, 0, 0, 0, len(up_info_list)+len(down_info_list),-1, -1])
+			writer.writerow([original_amr_name, 0, 0, 0, len(up_info_list)+len(down_info_list),-1, -1, True])
 		logging.error(amr_name+" was not found in the ref genomes!!!")
 		import pdb; pdb.set_trace()
 		return -1, -1
@@ -605,7 +605,8 @@ def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, 
 	if coverage_annotation=="":
 		with open(summary_file,'a') as fd:
 			writer = csv.writer(fd)
-			writer.writerow([original_amr_name, 0, 0, ref_len, 0,0, 0])
+			#writer.writerow([original_amr_name, 0, 0, ref_len, 0,0, 0])
+			writer.writerow([original_amr_name, 0, 0, ref_len, 0,0, 0, True])
 		return 0, 0
 	#Read  coverage_annotation csv file and store info
 	seq_info = []
@@ -694,8 +695,10 @@ def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, 
 
 	with open(summary_file,'a') as fd:
 		writer = csv.writer(fd)
+		# writer.writerow([original_amr_name, unique_tp, false_positive, ref_len, found_cases_len,
+		# 				sensitivity, precision])
 		writer.writerow([original_amr_name, unique_tp, false_positive, ref_len, found_cases_len,
-						sensitivity, precision])
+						sensitivity, precision, False])
 
 	return sensitivity, precision
 
@@ -1496,6 +1499,8 @@ def extract_graph_seqs_annotation_parallel(amr_name, path_info_file, neighborhoo
 		seq_info_list = p.map(p_annotation, sequence_list)
 	#Further processing of result of parallel annotation
 	all_seq_info_list =[]
+	# if amr_name=='GES-4' or amr_name=='GES-21':
+	# 	import pdb; pdb.set_trace()
 	for i, seq_pair in enumerate(sequence_list):
 		counter, line = seq_pair
 		seq_description = 'extracted'+str(counter)
@@ -2347,12 +2352,13 @@ def read_annotation_from_file(prokka_dir):
 
 	return seq_info
 
-def evaluate_pure_sequences(amr_name, neighborhood_seq_file, ref_up_seq_list,
+def evaluate_pure_sequences_ref_subject(amr_name, neighborhood_seq_file, ref_up_seq_list,
 							ref_down_seq_list, evaluation_csv, summary_file,threshold):
 	"""
 	to compare the sequences extracted from the graph from those of the ref genomes directly
 	rather than comparing their annotated version.
-	upstream and downstreams are compared separately
+	upstream and downstreams are compared separately.
+	for blastn, we assume ref sequence is the subject and what we found is the query
 	Parameters:
 		amr_name: the name of AMR
 		neighborhood_seq_file: the file containing extracted sequences from the graph
@@ -2364,6 +2370,7 @@ def evaluate_pure_sequences(amr_name, neighborhood_seq_file, ref_up_seq_list,
 	Return:
 		precision and sensitivity
 	"""
+	original_amr_name = retreive_original_amr_name(amr_name)
 	output_dir = os.path.dirname(evaluation_csv)+'/'
 	ref_len =  len(ref_up_seq_list)+len(ref_down_seq_list)
 	#read sequences from neighborhood_seq_file
@@ -2383,7 +2390,8 @@ def evaluate_pure_sequences(amr_name, neighborhood_seq_file, ref_up_seq_list,
 	if ref_len==0:
 		with open(summary_file,'a') as fd:
 			writer = csv.writer(fd)
-			writer.writerow([amr_name, 0, 0, 0, len(up_seq_list)+len(down_seq_list),-1, -1])
+			#writer.writerow([amr_name, 0, 0, 0, len(up_seq_list)+len(down_seq_list),-1, -1])
+			writer.writerow([original_amr_name, 0, 0, 0, len(up_seq_list)+len(down_seq_list),-1, -1, True])
 		logging.error(amr_name+" was not found in the ref genomes!!!")
 		import pdb; pdb.set_trace()
 		return -1, -1
@@ -2391,7 +2399,8 @@ def evaluate_pure_sequences(amr_name, neighborhood_seq_file, ref_up_seq_list,
 	if neighborhood_seq_file=='':
 		with open(summary_file,'a') as fd:
 			writer = csv.writer(fd)
-			writer.writerow([amr_name, 0, 0, ref_len, 0,0, 0])
+			#writer.writerow([amr_name, 0, 0, ref_len, 0,0, 0])
+			writer.writerow([original_amr_name, 0, 0, ref_len, 0,0, 0, True])
 		return 0, 0
 	#store identity and coverage info
 	#import pdb; pdb.set_trace()
@@ -2415,7 +2424,7 @@ def evaluate_pure_sequences(amr_name, neighborhood_seq_file, ref_up_seq_list,
 			#	import pdb; pdb.set_trace()
 			with open(evaluation_csv, 'a') as ed:
 				eval_writer = csv.writer(ed)
-				eval_writer.writerow([amr_name, 'up_stream', up_seq, ref_up_seq, identity[:-1], coverage[:-1]])
+				eval_writer.writerow([original_amr_name, 'up_stream', up_seq, ref_up_seq, identity[:-1], coverage[:-1]])
 	for down_seq in down_seq_list:
 		for ref_down_seq in ref_down_seq_list:
 			blast_file_name = compare_two_sequences(ref_down_seq, down_seq, output_dir,
@@ -2436,7 +2445,7 @@ def evaluate_pure_sequences(amr_name, neighborhood_seq_file, ref_up_seq_list,
 			#	import pdb; pdb.set_trace()
 			with open(evaluation_csv, 'a') as ed:
 				eval_writer = csv.writer(ed)
-				eval_writer.writerow([amr_name, 'down_stream', down_seq, ref_down_seq, identity[:-1], coverage[:-1]])
+				eval_writer.writerow([original_amr_name, 'down_stream', down_seq, ref_down_seq, identity[:-1], coverage[:-1]])
 
 	#find the number of unique true-positives, all false positives, total found cases, all unique true cases
 	unique_tp = 0
@@ -2477,9 +2486,157 @@ def evaluate_pure_sequences(amr_name, neighborhood_seq_file, ref_up_seq_list,
 
 	with open(summary_file,'a') as fd:
 		writer = csv.writer(fd)
-		writer.writerow([amr_name, unique_tp, false_positive, ref_len, found_cases_len,
-						sensitivity, precision])
+		# writer.writerow([amr_name, unique_tp, false_positive, ref_len, found_cases_len,
+		# 				sensitivity, precision])
+		writer.writerow([original_amr_name, unique_tp, false_positive, ref_len, found_cases_len,
+						sensitivity, precision, False])
 
+	return precision, sensitivity
+
+def evaluate_pure_sequences_ref_query(amr_name, neighborhood_seq_file, ref_up_seq_list,
+							ref_down_seq_list, evaluation_csv, summary_file,threshold):
+	"""
+	to compare the sequences extracted from the graph from those of the ref genomes directly
+	rather than comparing their annotated version.
+	upstream and downstreams are compared separately.
+	for blastn, we assume ref sequence is the query and what we found is the subject
+	Parameters:
+		amr_name: the name of AMR
+		neighborhood_seq_file: the file containing extracted sequences from the graph
+		ref_up_seq_list: extracted upstreams from ref genomes
+		ref_down_seq_list: extracted downstreams from ref genomes
+		evaluation_csv: the file to store the details of comparision
+		summary_file: the file to store the preciosn and sensitivity for each AMR
+		threshold: the threshold used for identity and coverage to consider two sequences similar enough
+	Return:
+		precision and sensitivity
+	"""
+	original_amr_name = retreive_original_amr_name(amr_name)
+	output_dir = os.path.dirname(evaluation_csv)+'/'
+	ref_len =  len(ref_up_seq_list)+len(ref_down_seq_list)
+	#read sequences from neighborhood_seq_file
+	up_seq_list = []
+	down_seq_list = []
+	if neighborhood_seq_file!='':
+		with open(neighborhood_seq_file, 'r') as read_obj:
+			for line in read_obj:
+				if line.startswith('>') or line.startswith('Path') or line.startswith('The'):
+					continue
+				up_seq, down_seq = split_up_down_seq(line[:-1])
+				if up_seq!='' and up_seq not in up_seq_list:
+					up_seq_list.append(up_seq)
+				if down_seq!='' and down_seq not in down_seq_list:
+					down_seq_list.append(down_seq)
+	#if no seq neighborhood was available in the ref genomes
+	if ref_len==0:
+		with open(summary_file,'a') as fd:
+			writer = csv.writer(fd)
+			#writer.writerow([amr_name, 0, 0, 0, len(up_seq_list)+len(down_seq_list),-1, -1])
+			writer.writerow([original_amr_name, 0, 0, 0, len(up_seq_list)+len(down_seq_list),-1, -1, True])
+		logging.error(amr_name+" was not found in the ref genomes!!!")
+		import pdb; pdb.set_trace()
+		return -1, -1
+	#If AMR was not found in the contig list
+	if neighborhood_seq_file=='':
+		with open(summary_file,'a') as fd:
+			writer = csv.writer(fd)
+			#writer.writerow([amr_name, 0, 0, ref_len, 0,0, 0])
+			writer.writerow([original_amr_name, 0, 0, ref_len, 0,0, 0, True])
+		return 0, 0
+	#store identity and coverage info
+	#import pdb; pdb.set_trace()
+	for up_seq in up_seq_list:
+		for ref_up_seq in ref_up_seq_list:
+			blast_file_name = compare_two_sequences(up_seq, ref_up_seq, output_dir,
+					threshold, switch_allowed = False, return_file = True)
+			any_row_found = False
+			with open(blast_file_name, 'r') as file1:
+				myfile = csv.reader(file1)
+				identity = ''
+				coverage = ''
+				for row in myfile:
+					any_row_found = True
+					iden = float(row[2])
+					#cov = float(row[3])/len(ref_up_seq)*100
+					cov = float(row[12])
+					if iden>=20 and cov>=20:
+						identity = identity + str(iden)+','
+						coverage = coverage + str(cov)+','
+			#if not any_row_found:
+			#	import pdb; pdb.set_trace()
+			with open(evaluation_csv, 'a') as ed:
+				eval_writer = csv.writer(ed)
+				eval_writer.writerow([original_amr_name, 'up_stream', up_seq, ref_up_seq, identity[:-1], coverage[:-1]])
+	for down_seq in down_seq_list:
+		for ref_down_seq in ref_down_seq_list:
+			blast_file_name = compare_two_sequences(down_seq, ref_down_seq, output_dir,
+					threshold, switch_allowed = False, return_file = True)
+			any_row_found = False
+			with open(blast_file_name, 'r') as file1:
+				myfile = csv.reader(file1)
+				identity = ''
+				coverage = ''
+				for row in myfile:
+					any_row_found = True
+					iden = float(row[2])
+					#cov = float(row[3])/len(ref_down_seq)*100
+					cov = float(row[12])
+					if iden>=20 and cov>=20:
+						identity = identity + str(iden)+','
+						coverage = coverage + str(cov)+','
+			#if not any_row_found:
+			#	import pdb; pdb.set_trace()
+			with open(evaluation_csv, 'a') as ed:
+				eval_writer = csv.writer(ed)
+				eval_writer.writerow([original_amr_name, 'down_stream', down_seq, ref_down_seq, identity[:-1], coverage[:-1]])
+
+	#find the number of unique true-positives, all false positives, total found cases, all unique true cases
+	unique_tp = 0
+	for ref_seq in ref_up_seq_list:
+		for seq in up_seq_list:
+			if compare_two_sequences(seq, ref_seq, output_dir, threshold,
+									switch_allowed = False, subject_coverage = False):
+				unique_tp+=1
+				break
+	for ref_seq in ref_down_seq_list:
+		for seq in down_seq_list:
+			if compare_two_sequences(seq, ref_seq, output_dir, threshold,
+									switch_allowed = False, subject_coverage = False):
+				unique_tp+=1
+				break
+	sensitivity = 1 if ref_len==0 else round(float(unique_tp)/ref_len, 2)
+
+	false_positive = 0
+	for seq in up_seq_list:
+		found_similar_seq = False
+		for ref_seq in ref_up_seq_list:
+			if compare_two_sequences(seq, ref_seq, output_dir, threshold,
+									switch_allowed = False, subject_coverage = False):
+				found_similar_seq = True
+				break
+		if not found_similar_seq:
+			false_positive+=1
+	for seq in down_seq_list:
+		found_similar_seq = False
+		for ref_seq in ref_down_seq_list:
+			if compare_two_sequences(seq, ref_seq, output_dir, threshold,
+									switch_allowed = False, subject_coverage = False):
+				found_similar_seq = True
+				break
+		if not found_similar_seq:
+			false_positive+=1
+	found_cases_len = len(up_seq_list)+len(down_seq_list)
+	if found_cases_len == 0 and ref_len == 0:
+		precision = 1
+	else:
+		precision = 0 if found_cases_len==0 else round(1 - float(false_positive)/found_cases_len, 2)
+
+	with open(summary_file,'a') as fd:
+		writer = csv.writer(fd)
+		# writer.writerow([amr_name, unique_tp, false_positive, ref_len, found_cases_len,
+		# 				sensitivity, precision])
+		writer.writerow([original_amr_name, unique_tp, false_positive, ref_len, found_cases_len,
+						sensitivity, precision, False])
 
 	return precision, sensitivity
 
@@ -2544,7 +2701,7 @@ def annotation_evaluation_main(params, amr_files, coverage_annotation_list,
 		datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
 	with open(summary_file,'a') as fd:
 		writer = csv.writer(fd)
-		writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
+		writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision', 'not_found'])
 	#extract the list of AMR groups
 	overlap_file_name = params.output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
 	heads, member_lists, _ = extract_info_from_overlap_file(overlap_file_name)
@@ -2824,14 +2981,14 @@ def seq_evaluation_main(params, seq_files, amr_files, not_found_amr_names):
 		if ref_down_seq!='' and ref_down_seq not in ref_down_seq_list[amr_name]:
 			ref_down_seq_list[amr_name].append(ref_down_seq)
 	#initializ required file
-	evaluation_csv =params.output_dir+'/sequence_evaluation.csv'
+	evaluation_csv =params.output_dir+'/sequence_evaluation_details.csv'
 	with open(evaluation_csv, 'a') as ed:
 		eval_writer = csv.writer(ed)
 		eval_writer.writerow(['amr_name', 'type', 'extracted_seq', 'ref_seq', 'identity', 'coverage'])
 	summary_file = params.output_dir+'summaryMetrics_sequence_'+str(seq_identity_thr)+'.csv'
 	with open(summary_file,'a') as fd:
 		writer = csv.writer(fd)
-		writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
+		writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision', 'not_found'])
 	#extract the list of AMR groups
 	overlap_file_name = params.output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
 	heads, member_lists, _ = extract_info_from_overlap_file(overlap_file_name)
@@ -2844,9 +3001,16 @@ def seq_evaluation_main(params, seq_files, amr_files, not_found_amr_names):
 		neighborhood_seq_file, _ = find_corrsponding_seq_path_file(restricted_amr_name,
 								neighborhood_files, [], params.seq_length)
 		#compare and evaluate
-		precision, sensitivity = evaluate_pure_sequences(amr_name, neighborhood_seq_file,
-					ref_up_seq_list[amr_name], ref_down_seq_list[amr_name],
-					evaluation_csv, summary_file, seq_identity_thr)
+		if seq_eval_ref_subject:
+			precision, sensitivity = evaluate_pure_sequences_ref_subject(amr_name,
+						neighborhood_seq_file, ref_up_seq_list[amr_name],
+						ref_down_seq_list[amr_name], evaluation_csv,
+						summary_file, seq_identity_thr)
+		else:
+			precision, sensitivity = evaluate_pure_sequences_ref_query(amr_name,
+						neighborhood_seq_file, ref_up_seq_list[amr_name],
+						ref_down_seq_list[amr_name], evaluation_csv,
+						summary_file, seq_identity_thr)
 		average_precision+=precision
 		average_sensitivity+=sensitivity
 		logging.info('For "'+amr_name+'": sensitivity= '+str(sensitivity)+' precision = '+ str(precision))
@@ -2858,18 +3022,30 @@ def seq_evaluation_main(params, seq_files, amr_files, not_found_amr_names):
 								neighborhood_files, [], params.seq_length)
 		for amr_name in member_lists[i]:
 			#compare and evaluate
-			precision, sensitivity = evaluate_pure_sequences(amr_name, neighborhood_seq_file,
-						ref_up_seq_list[head], ref_down_seq_list[head],
-						evaluation_csv, summary_file, seq_identity_thr)
+			if seq_eval_ref_subject:
+				precision, sensitivity = evaluate_pure_sequences_ref_subject(amr_name,
+							neighborhood_seq_file, ref_up_seq_list[head],
+							ref_down_seq_list[head], evaluation_csv,
+							summary_file, seq_identity_thr)
+			else:
+				precision, sensitivity = evaluate_pure_sequences_ref_query(amr_name,
+							neighborhood_seq_file, ref_up_seq_list[head],
+							ref_down_seq_list[head], evaluation_csv,
+							summary_file, seq_identity_thr)
 			average_precision+=precision
 			average_sensitivity+=sensitivity
 			logging.info('For "'+amr_name+'": sensitivity= '+str(sensitivity)+' precision = '+ str(precision))
 			overlap_amr_counter+=1
 	#Going over the list of AMRs not found in the graph
 	for amr_name in not_found_amr_names:
-		precision, sensitivity = evaluate_pure_sequences(amr_name, '',
-					ref_up_seq_list[amr_name], ref_down_seq_list[amr_name],
-					evaluation_csv, summary_file, seq_identity_thr)
+		if seq_eval_ref_subject:
+			precision, sensitivity = evaluate_pure_sequences_ref_subject(amr_name, '',
+						ref_up_seq_list[amr_name], ref_down_seq_list[amr_name],
+						evaluation_csv, summary_file, seq_identity_thr)
+		else:
+			precision, sensitivity = evaluate_pure_sequences_ref_query(amr_name, '',
+						ref_up_seq_list[amr_name], ref_down_seq_list[amr_name],
+						evaluation_csv, summary_file, seq_identity_thr)
 
 	average_precision = average_precision/(len(amr_files)+overlap_amr_counter+len(not_found_amr_names))
 	average_sensitivity =average_sensitivity/(len(amr_files)+overlap_amr_counter+len(not_found_amr_names))
@@ -3030,7 +3206,10 @@ def full_pipeline_main(params):
 		#is not available then call find_amrs_in sample.py first to detect the AMRs from the ref sample
 		if not os.path.exists(params.output_dir+AMR_DIR_NAME):
 			#os.makedirs(params.output_dir+AMR_DIR_NAME)
-			if find_annotate_amrs_in_ref(params.amr_db, params.metagenome_file,
+			# if find_annotate_amrs_in_ref(params.amr_db, params.metagenome_file,
+			# 								params.PROKKA_COMMAND_PREFIX, params.use_RGI,
+			# 								params.RGI_include_loose, params.output_dir)==-1:
+			if find_annotate_amrs_in_ref(params.amr_db, params.ref_genome_files,
 											params.PROKKA_COMMAND_PREFIX, params.use_RGI,
 											params.RGI_include_loose, params.output_dir)==-1:
 				print('please enter the path for the sample file and amr sequences file')
@@ -3084,7 +3263,7 @@ def full_pipeline_main(params):
 			seq_files, path_info_files = sequence_neighborhood_main(params, gfa_file,
 					graph_file, amr_seq_align_info)
 
-	if SEQ_EVAL:
+	if params.seq_evaluation and Pipeline_tasks.neighborhood_evaluation.value in task_list:
 		seq_evaluation_main(params, seq_files, unique_amr_files, not_found_amr_names)
 		logging.info("All Done!")
 		sys.exit()

@@ -93,7 +93,7 @@ def annotate_neighborhood_sequences(ref_ng_info_list, out_dir, prokka_prefix,
         for index, amr_info in enumerate(amr_info_list[1]):
             contig_name = amr_info['contig']
             seq = amr_info['seq']
-            seq_description = 'ref_'+amr_name+'_'+contig_name.replace(' ','_').replace('.','').replace(',','')
+            seq_description = 'ref_'+str(index)+'_'+amr_name+'_'+contig_name.replace(' ','_').replace('.','').replace(',','')
             amr_name1 = restricted_amr_name_from_modified_name(amr_name)
             annotation_prefix = 'ref_'+ amr_name1 +'__'+str(index)
             seq_info = annotate_sequence(seq+"\n", annotation_prefix, annotate_dir,

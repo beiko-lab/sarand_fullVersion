@@ -60,7 +60,7 @@ def main():
         datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
     with open(summary_file,'a') as fd:
         writer = csv.writer(fd)
-        writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
+        writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision', 'not_found'])
 
     average_precision = 0
     average_sensitivity = 0
@@ -71,11 +71,11 @@ def main():
         amr_file = find_corresponding_amr_file(restricted_amr_name, ref_amr_files)
         #sequence extraction
         logging.info('Neighborhood Extraction ...')
-        gfa_file = params.output_dir+'output/'+str(i+163)+'/graph.gfa'
+        gfa_file = params.output_dir+'output/'+str(i+1)+'/graph.gfa'
         logging.info('gfa_file: '+gfa_file)
         seq_file, path_info_file = neighborhood_sequence_extraction(gfa_file,
                 params.seq_length, sequence_dir, params.BANDAGE_PATH,
-                params.amr_identity_threshold, SEQ_NAME_PREFIX+str(i+163),
+                params.amr_identity_threshold, SEQ_NAME_PREFIX+str(i+1),
                 params.path_node_threshold , params.path_seq_len_percent_threshod,
                 params.max_kmer_size, params.assembler, (amr_file,''))
         if seq_file=='':
@@ -84,7 +84,8 @@ def main():
             precision = 0
             with open(summary_file,'a') as fd:
                 writer = csv.writer(fd)
-                writer.writerow([amr_name, 0, 0, 0, -1,0, 0])
+                #writer.writerow([amr_name, 0, 0, 0, -1,0, 0])
+                writer.writerow([amr_name, 0, 0, 0, -1,0, 0, True])
         else:
             #Annotation
             logging.info('Annoation ...')
@@ -94,7 +95,7 @@ def main():
             all_seq_info_list, annotation_file =neighborhood_annotation(amr_name, seq_file,
                     path_info_file, params.seq_length, [], [], params.output_dir,
                     params.PROKKA_COMMAND_PREFIX,params.use_RGI,
-                    params.RGI_include_loose, '_'+str(i+163)+restricted_amr_name,
+                    params.RGI_include_loose, '_'+str(i+1)+restricted_amr_name,
                     False)
             #Evaluation
             logging.info('Evaluation ...')

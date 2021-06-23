@@ -158,7 +158,8 @@ def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_l
 	if ref_len==0 and len(ref_amr_info_list)==0:
 		with open(summary_file,'a') as fd:
 			writer = csv.writer(fd)
-			writer.writerow([amr_name, 0, 0, 0, len(up_info_list)+len(down_info_list),-1, -1])
+			#writer.writerow([amr_name, 0, 0, 0, len(up_info_list)+len(down_info_list),-1, -1])
+			writer.writerow([amr_name, 0, 0, 0, len(up_info_list)+len(down_info_list),-1, -1, True])
 		logging.error(amr_name+" was not found in the ref genomes!!!")
 		import pdb; pdb.set_trace()
 		return -1, -1
@@ -168,7 +169,8 @@ def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_l
 			fa.write(amr_name+'\n')
 		with open(summary_file,'a') as fd:
 			writer = csv.writer(fd)
-			writer.writerow([amr_name, 0, 0, ref_len, 0,0, 0])
+			writer.writerow([amr_name, 0, 0, ref_len, 0,0, 0, True])
+			#writer.writerow([amr_name, 0, 0, ref_len, 0,0, 0])
 		return 0, 0
 	#find the number of unique true-positives, all false positives, total found cases, all unique true cases
 	unique_tp = 0
@@ -215,8 +217,10 @@ def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_l
 
 	with open(summary_file,'a') as fd:
 		writer = csv.writer(fd)
+		# writer.writerow([amr_name, unique_tp, false_positive, ref_len, found_cases_len,
+		# 				sensitivity, precision])
 		writer.writerow([amr_name, unique_tp, false_positive, ref_len, found_cases_len,
-						sensitivity, precision])
+						sensitivity, precision, False])
 
 	return sensitivity, precision
 
@@ -286,7 +290,7 @@ def find_contig_amrs_main(params):
 		datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
 		with open(summary_file,'a') as fd:
 			writer = csv.writer(fd)
-			writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
+			writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision', 'not_found'])
 		df = pd.read_csv(params.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
 		amr_groups = df.groupby('target_amr')
 		#Going over amrs one by one to extract their neighborhood and annotate and evaluate

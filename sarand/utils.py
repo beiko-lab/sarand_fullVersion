@@ -655,29 +655,30 @@ def split_up_down_info(sequence, seq_info):
 
 	return found, amr_info, up_info, down_info, seq_info
 
-def compare_two_sequences(seq1, seq2, output_dir, threshold = 90, switch_allowed = True,
-		return_file = False, blast_ext = ''):
+def compare_two_sequences(subject, query, output_dir, threshold = 90, switch_allowed = True,
+		return_file = False, subject_coverage = True, blast_ext = ''):
 	"""
 	To compare one sequence (shorter sequence) against the other one (longer sequence) using blastn
 	"""
-	#make sure seq1 is the longer sequence
-	if switch_allowed and len(seq1)<len(seq2):
-		seq1, seq2 = seq2, seq1
+	#make sure subject is the longer sequence
+	if switch_allowed and len(subject)<len(query):
+		subject, query = query, subject
 	#write the query sequence into a fasta file
 	query_file_name = output_dir+'query.fasta'
 	with open(query_file_name, 'w') as query_file:
 		query_file.write('> query \n')
-		query_file.write(seq2)
+		query_file.write(query)
 	#write the query sequence into a fasta file
 	subject_file_name = output_dir+'subject.fasta'
 	with open(subject_file_name, 'w') as subject_file:
 		subject_file.write('> subject \n')
-		subject_file.write(seq1)
+		subject_file.write(subject)
 	#run blast query for alignement
 	blast_file_name = output_dir+'blast'+blast_ext+'.csv'
 	blast_file = open(blast_file_name, "w")
 	blast_command = subprocess.run(["blastn", "-query", query_file_name, "-subject",
-						subject_file_name,"-task", "blastn-short", "-outfmt", "10"],
+						subject_file_name,"-task", "blastn-short", "-outfmt",
+						"10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovs"],
 						stdout=blast_file, check= True)
 	blast_file.close()
 	# command = 'blastn -query '+query_file_name+' -subject '+subject_file_name+\
@@ -691,10 +692,12 @@ def compare_two_sequences(seq1, seq2, output_dir, threshold = 90, switch_allowed
 		myfile = csv.reader(file1)
 		for row in myfile:
 			identity=int(float(row[2]))
-			coverage = int(float(row[3])/len(seq1)*100)
-			if identity>=threshold and coverage>=threshold:
+			coverage = int(float(row[3])/len(subject)*100)
+			q_coverage = int(float(row[12]))
+			if subject_coverage and identity>=threshold and coverage>=threshold:
 				return True
-
+			if not subject_coverage and identity>=threshold and q_coverage>=threshold:
+				return True
 	return False
 
 def unnamed_genes_are_siginificantly_similar(gene_info1, gene_info2, threshold = 90):

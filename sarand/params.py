@@ -53,6 +53,7 @@ PROKKA_COMMAND_PREFIX = 'docker run -v '+cwd+':/data staphb/prokka:latest '
 
 amr_db = pkg_resources.resource_filename(__name__, 'data/CARD_AMR_seq.fasta')
 main_dir = 'test/'
+#main_dir = '/media/Data/PostDoc/Dalhousie/Work/Test2/Experiments/real_sample1/'
 output_dir = main_dir+'output_dir/'
 
 multi_processor = True
@@ -64,10 +65,13 @@ amr_files = output_dir +'AMR_info/sequences/'
 find_amr_genes = False
 amr_identity_threshold =  95
 
+#To Do the sequence evaluation rather than annotation evaluation
+seq_evaluation = False
+
 ref_genomes_available = True
 ref_ng_annotations_file = output_dir + 'AMR_info/ref_neighborhood_annotations.csv'
 ref_genome_files = main_dir + 'metagenome_data/'
-
+#ref_genome_files = main_dir + 'H_S001__insert_180_gsa_anonymous.fasta'
 
 #simulating reads
 read_length =  150

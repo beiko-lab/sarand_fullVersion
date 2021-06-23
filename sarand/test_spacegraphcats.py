@@ -133,7 +133,7 @@ def main():
     summary_file = evaluation_dir+'summaryMetrics_up_down_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
     with open(summary_file,'a') as fd:
         writer = csv.writer(fd)
-        writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision'])
+        writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision', 'not_found'])
     graph_dir = params.output_dir+'ng_graphs/'
     if not os.path.exists(graph_dir):
         os.makedirs(graph_dir)
@@ -162,7 +162,8 @@ def main():
             precision = 0
             with open(summary_file,'a') as fd:
                 writer = csv.writer(fd)
-                writer.writerow([amr_name, 0, 0, 0, -1, 0, 0])
+                #writer.writerow([amr_name, 0, 0, 0, -1, 0, 0])
+                writer.writerow([amr_name, 0, 0, 0, -1, 0, 0, True])
         else:
             #Annotation
             logging.info('Annoation ...')
