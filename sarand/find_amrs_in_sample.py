@@ -38,6 +38,7 @@ from sarand.utils import create_fasta_file, annotate_sequence, split_up_down_inf
 			str2bool, print_parameters
 
 AMR_DIR_NAME = 'AMR_info/'
+AMR_SEQ_DIR = 'sequences/'
 
 def write_annotations_into_file(annotation_file, amr_name, up_info_desc_list,
                             amr_info_desc_list, down_info_desc_list):
@@ -84,6 +85,7 @@ def annotate_neighborhood_sequences(ref_ng_info_list, out_dir, prokka_prefix,
             'start_pos', 'end_pos', 'RGI_prediction_type', 'family'])
     for amr_info_list in ref_ng_info_list:
         amr_name = amr_info_list[0]
+        restricted_amr_name = restricted_amr_name_from_modified_name(amr_name)
         ref_up_info_list = []
         ref_amr_info_list = []
         ref_down_info_list = []
@@ -94,8 +96,7 @@ def annotate_neighborhood_sequences(ref_ng_info_list, out_dir, prokka_prefix,
             contig_name = amr_info['contig']
             seq = amr_info['seq']
             seq_description = 'ref_'+str(index)+'_'+amr_name+'_'+contig_name.replace(' ','_').replace('.','').replace(',','')
-            amr_name1 = restricted_amr_name_from_modified_name(amr_name)
-            annotation_prefix = 'ref_'+ amr_name1 +'__'+str(index)
+            annotation_prefix = 'ref_'+ restricted_amr_name +'__'+str(index)
             seq_info = annotate_sequence(seq+"\n", annotation_prefix, annotate_dir,
                     prokka_prefix, use_RGI, RGI_include_loose)
             found, ref_amr_info , ref_up_info, ref_down_info, seq_info = split_up_down_info(seq, seq_info)
@@ -109,13 +110,17 @@ def annotate_neighborhood_sequences(ref_ng_info_list, out_dir, prokka_prefix,
                 ref_amr_info_list.append(ref_amr_info)
                 amr_description_list.append(seq_description)
             else:
-                logging.error("No target amr was found in the ref sequence")
+                logging.error("No target amr ("+amr_name+") was found in the ref sequence")
                 error_writer.write(amr_name+' annotation not found in ref_contig: '+contig_name+" seq_info: "+str(seq_info)+'\n')
         if ref_amr_info_list:
             write_annotations_into_file(annotation_file, amr_name, zip(ref_up_info_list, up_description_list),
                 zip(ref_amr_info_list, amr_description_list), zip(ref_down_info_list, down_description_list))
         else:
             error_writer.write(amr_name+' no annotation was found in reference.\n')
+			#delete the AMR from the sequence folder
+            AMR_file = out_dir+AMR_SEQ_DIR+restricted_amr_name+'.fasta'
+            if os.path.isfile(AMR_file):
+                os.remove(AMR_file)
     logging.info("NOTE: The annotation of neighborhood sequences in reference genome(s) has\
         been stroed in " + annotation_file)
     error_writer.close()
@@ -156,7 +161,7 @@ def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, out_dir,
 						"-outfmt", "10", "-evalue", "0.5", "-perc_identity", str(threshold-1),
 						"-num_threads", "4"], stdout=blast_file, check= True)
 		blast_file.close()
-	AMR_dir = out_dir+'sequences/'
+	AMR_dir = out_dir+AMR_SEQ_DIR
 	ng_file = out_dir+'AMR_'+type+'_neighborhood.fasta'
 	if not os.path.exists(AMR_dir) or not os.path.isfile(ng_file):
 		#Read the blast result
