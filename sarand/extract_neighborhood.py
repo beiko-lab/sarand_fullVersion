@@ -486,8 +486,14 @@ def extract_found_amr(myGraph, node_list, orientation_list, start_pos, end_pos):
 	seq = sequence_on_orientation(myGraph.segment(node_list[-1]).sequence, orientation_list[-1])[:end_pos]
 	overlap_size = find_overlap(myGraph.segment(node_list[-2]), myGraph.segment(node_list[-1]),
 								orientation_list[-2], orientation_list[-1])
-	seq = seq[overlap_size:]
-	found_amr_seq += seq
+	#if only a part of overlap is in the AMR sequence:
+	#e.g., with overlap_size = 55, (93) 26719919-, 5498944+ (32)
+	if end_pos < overlap_size:
+		len_not_in_amr = overlap_size - end_pos
+		found_amr_seq = found_amr_seq[:-len_not_in_amr]
+	else:
+		seq = seq[overlap_size:]
+		found_amr_seq += seq
 
 	return found_amr_seq
 
