@@ -82,7 +82,7 @@ NOT_FOUND_FILE = 'not_found_amrs_in_graph.txt'
 #To run the code for a list of sequence neighborhood length rather than just one length
 #the default seq length is 1000
 MULTIPLE_SEQ_LENGTH = False
-seq_eval_ref_subject = True
+seq_eval_ref_subject = False
 
 def find_amrs_not_in_graph(ref_amr_files, amr_names):
 	"""
