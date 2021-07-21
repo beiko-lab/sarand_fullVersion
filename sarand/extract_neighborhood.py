@@ -38,14 +38,14 @@ from sarand.params import Assembler_name
 #from find_seq_in_contigs import find_sequence_match
 
 BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
-OUT_DIR = 'output/'
+OUT_DIR = 'output'
 BOTH_DIR_RECURSIVE = True
 #MAX_K_MER_SIZE = 55
 #if this feature is true after that the extracted length reaches a threshold, we don't go
 #over all edges in the neighbourhood (in pre_sequence and post_sequence extraction)
 #and only extract the sequence from the longest one to reduce the processing time!!!
 ONLY_LONGEST_EDGE = False
-TEMP_DIR = 'temp/'
+TEMP_DIR = 'temp'
 
 def retrieve_AMR(file_path):
 	"""
@@ -103,12 +103,12 @@ def find_sequence_match(query, contig_file, out_dir = TEMP_DIR, blast_ext = '',
 	# command = 'makeblastdb -in '+contig_file +' -parse_seqids -dbtype nucl'
 	# os.system(command)
 	#write the sequence into a fasta file
-	query_file = out_dir+'/query.fasta'
+	query_file = os.path.join(out_dir, 'query.fasta')
 	file = open(query_file, 'w')
 	file.write(query)
 	file.close()
 	#run blast query for alignement
-	blast_file_name = out_dir+'/blast'+blast_ext+'.csv'
+	blast_file_name = os.path.join(out_dir, 'blast'+blast_ext+'.csv')
 	blast_file = open(blast_file_name, 'w')
 	blast_command = subprocess.run(["blastn", "-query", query_file, "-db", contig_file,
 						"-outfmt", "10", "-max_target_seqs", str(max_target_seqs),
@@ -537,7 +537,7 @@ def generate_sequence_path(myGraph, node_list, orientation_list, start_pos, end_
 	#extract found AMR sequence
 	found_amr_seq = extract_found_amr(myGraph, node_list, orientation_list, start_pos, end_pos)
 	#create a temporaty directory
-	temp_dir = 'temp_comparison2_'+output_name+'/'
+	temp_dir = 'temp_comparison2_'+output_name
 	if not os.path.exists(temp_dir):
 		try:
 			os.makedirs(temp_dir)
@@ -1362,7 +1362,7 @@ def extract_neighborhood_sequence(gfa_file, length, amr_path_info, remained_len_
 
 	logging.debug('last_segment = '+last_segment.name+' start_pos = '+str(start_pos)+' end_pos= '+str(end_pos))
 	#create a temporaty directory
-	compare_dir = 'temp_comparison_'+output_name+'/'
+	compare_dir = 'temp_comparison_'+output_name
 	if not os.path.exists(compare_dir):
 		try:
 			os.makedirs(compare_dir)
@@ -1476,7 +1476,7 @@ def find_amr_related_nodes(amr_file, gfa_file, output_dir, bandage_path = BANDAG
 	"""
 	if align_file =='':
 		#Run bandage+blast
-		output_name=output_dir+output_pre+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+		output_name=os.path.join(output_dir, output_pre+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 		if os.path.isfile(output_name+'.tsv'):
 			os.remove(output_name+'.tsv')
 		bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, amr_file,
@@ -1567,7 +1567,7 @@ def order_path_nodes(path_nodes, amr_file, out_dir, threshold = 90):
 		#write the sequence into a fasta file
 		query_file = create_fasta_file(node.sequence, out_dir, comment = ">"+node.name+"\n", file_name = 'query')
 		#run blast query for alignement
-		blast_file_name = out_dir+'blast.csv'
+		blast_file_name = os.path.join(out_dir,'blast.csv')
 		blast_file = open(blast_file_name, "w")
 		blast_command = subprocess.run(["blastn", "-query", query_file, "-subject", amr_file,
 						"-task", "blastn", "-outfmt", "10", "-max_target_seqs", "10",
@@ -1687,7 +1687,7 @@ def ng_seq_extraction_metacherchant(gfa_file, length, output_dir,path_thr,
 	Return:
 		the name of file containing the list of extracted sequences/paths
 	"""
-	with open(output_dir+"metacherchant_no_path.txt", 'a') as no_path_file:
+	with open(os.path.join(output_dir, "metacherchant_no_path.txt"), 'a') as no_path_file:
 		no_path_file.write(amr_file+'\n')
 	try:
 		myGraph = gfapy.Gfa.from_file(gfa_file)
@@ -1698,7 +1698,7 @@ def ng_seq_extraction_metacherchant(gfa_file, length, output_dir,path_thr,
 	path_nodes = extract_amr_align_from_file(gfa_file)
 	#find the order of these nodes in the amr path
 	ordered_path_nodes, orientations = order_path_nodes(path_nodes, amr_file,
-									output_dir+'alignment_files/', threshold)
+									os.path.join(output_dir,'alignment_files'), threshold)
 	node_list = [e.name for e in ordered_path_nodes]
 
 	last_segment = ordered_path_nodes[-1]
@@ -1707,7 +1707,7 @@ def ng_seq_extraction_metacherchant(gfa_file, length, output_dir,path_thr,
 
 	logging.debug('last_segment = '+last_segment.name+' start_pos = '+str(start_pos)+' end_pos= '+str(end_pos))
 	#create a temporaty directory
-	compare_dir = 'temp_comparison_'+output_name+'/'
+	compare_dir = 'temp_comparison_'+output_name
 	if not os.path.exists(compare_dir):
 		try:
 			os.makedirs(compare_dir)
@@ -1804,7 +1804,7 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 	logging.debug('amr_file = '+amr_file)
 	output_name = seq_name_prefix +os.path.splitext(os.path.basename(amr_file))[0]
 	remained_len_thr = length - (length*path_seq_len_percent_threshod/100.0)
-	seq_output_dir = output_dir+'sequences/'
+	seq_output_dir = os.path.join(output_dir, 'sequences')
 	if not os.path.exists(seq_output_dir):
 		try:
 			os.makedirs(seq_output_dir)
@@ -1812,20 +1812,21 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 			if exc.errno != errno.EEXIST:
 				raise
 			pass
-	seq_file = seq_output_dir+output_name+'_'+str(length)+'_'+\
-	datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt'
+	seq_file = os.path.join(seq_output_dir, output_name+'_'+str(length)+'_'+\
+	datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt')
 
 	if not amr_paths_info:
-		if not os.path.exists(output_dir+'alignment_files/'):
+		if not os.path.exists(os.path.join(output_dir,'alignment_files')):
 			try:
-				os.makedirs(output_dir+'alignment_files/')
+				os.makedirs(os.path.join(output_dir, 'alignment_files'))
 			except OSError as exc:
 				if exc.errno != errno.EEXIST:
 					raise
 				pass
 		#remained_len_thr = length - (length*path_seq_len_percent_threshod/100.0)
 		#find all AMR paths in the assembly graph
-		found, amr_paths_info = find_amr_related_nodes(amr_file, gfa_file, output_dir+'alignment_files/',
+		found, amr_paths_info = find_amr_related_nodes(amr_file, gfa_file,
+												os.path.join(output_dir, 'alignment_files'),
 												bandage, threshold, output_name, '')
 		if not found:
 			if assembler==Assembler_name.metacherchant:
@@ -1840,15 +1841,15 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 				return '', ''
 
 	#csv file for path_info
-	if not os.path.exists(output_dir+'paths_info/'):
+	if not os.path.exists(os.path.join(output_dir, 'paths_info')):
 		try:
-			os.makedirs(output_dir+'paths_info/')
+			os.makedirs(os.path.join(output_dir, 'paths_info'))
 		except OSError as exc:
 			if exc.errno != errno.EEXIST:
 				raise
 			pass
-	paths_info_file = output_dir+'paths_info/'+output_name+'_'+str(length)+'_'+\
-	datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
+	paths_info_file = os.path.join(output_dir, 'paths_info', output_name+'_'+str(length)+'_'+\
+	datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv')
 	with open(paths_info_file,'a') as fd:
 		writer = csv.writer(fd)
 		writer.writerow(['sequence', 'node', 'coverage', 'start', 'end'])
@@ -1933,14 +1934,15 @@ def neighborhood_graph_extraction(gfa_file, distance, output_dir,
 	logging.debug('amr_file = '+amr_file+'\t align_file = '+align_file)
 	output_name = seq_name_prefix +os.path.splitext(os.path.basename(amr_file))[0]
 	if not paths_info:
-		if not os.path.exists(output_dir+'alignment_files/'):
+		if not os.path.exists(os.path.join(output_dir, 'alignment_files')):
 			try:
-				os.makedirs(output_dir+'alignment_files/')
+				os.makedirs(os.path.join(output_dir, 'alignment_files'))
 			except OSError as exc:
 				if exc.errno != errno.EEXIST:
 					raise
 				pass
-		_, paths_info = find_amr_related_nodes(amr_file, gfa_file, output_dir+'alignment_files/',
+		_, paths_info = find_amr_related_nodes(amr_file, gfa_file,
+												os.path.join(output_dir, 'alignment_files'),
 												bandage, threshold, output_name, '')
 
 	#Find neighbourhood of found nodes AND create a new graph contating the target subgraph
@@ -1952,8 +1954,8 @@ def neighborhood_graph_extraction(gfa_file, distance, output_dir,
 		#Generate a graph with the lists of segments and edges
 		subGraph = create_graph(myGraph, segment_list, edge_list)
 		#write the subgraph in a GFA file
-		subgraph_file = output_dir+output_name+'_'+str(distance)+'_'+str(i+1)+'_'+\
-			datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.gfa'
+		subgraph_file = os.path.join(output_dir, output_name+'_'+str(distance)+'_'+str(i+1)+'_'+\
+			datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.gfa')
 		subGraph.to_file(subgraph_file)
 		logging.info("NOTE: The extracted subgraph has been stored in " + subgraph_file)
 		subgraph_file_list.append(subgraph_file)

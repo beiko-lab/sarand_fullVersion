@@ -18,3 +18,4 @@ dependencies:
   - pillow
   - dna_features_viewer
   - spades
+  - pyyaml

@@ -8,7 +8,7 @@ Purpose:	To find all AMRs available in a metagenome sample,
 To run:
 	python find_amrs_in_sample.py --ref_genome_files <metagenome file path>
     --amr_db <fasta file containing all AMR sequences>
-Note: it reads 3 parameetrs from params.py:
+Note: it reads the following parametrs from params.py:
 	- params.PROKKA_COMMAND_PREFIX
 	- params.use_RGI
 	- params.RGI_include_loose
@@ -29,16 +29,17 @@ import collections
 import datetime
 import logging
 import subprocess
+import yaml
 from Bio import SeqIO
 from gfapy.sequence import rc
 
 from sarand.utils import create_fasta_file, annotate_sequence, split_up_down_info,\
             similar_seq_annotation_already_exist, restricted_amr_name_from_modified_name,\
             amr_name_from_comment, initialize_logger, extract_files, concatenate_files,\
-			str2bool, print_parameters
+			str2bool, validate_print_parameters
 
-AMR_DIR_NAME = 'AMR_info/'
-AMR_SEQ_DIR = 'sequences/'
+AMR_DIR_NAME = 'AMR_info'
+AMR_SEQ_DIR = 'sequences'
 
 def write_annotations_into_file(annotation_file, amr_name, up_info_desc_list,
                             amr_info_desc_list, down_info_desc_list):
@@ -72,12 +73,12 @@ def annotate_neighborhood_sequences(ref_ng_info_list, out_dir, prokka_prefix,
 									use_RGI, RGI_include_loose):
     """
     """
-    error_file =out_dir+"not_found_annotation_amrs_in_ref.txt"
+    error_file =os.path.join(out_dir, "not_found_annotation_amrs_in_ref.txt")
     error_writer = open(error_file, 'w')
-    annotate_dir = out_dir+'ref_annotations/'
+    annotate_dir = os.path.join(out_dir, 'ref_annotations')
     if not os.path.exists(annotate_dir):
         os.makedirs(annotate_dir)
-    annotation_file = out_dir+'ref_neighborhood_annotations.csv'
+    annotation_file = os.path.join(out_dir, 'ref_neighborhood_annotations.csv')
     with open(annotation_file,  'a') as fd:
         writer = csv.writer(fd)
         writer.writerow(['target_amr', 'gene_location', 'seq_name', 'seq_value',
@@ -118,7 +119,7 @@ def annotate_neighborhood_sequences(ref_ng_info_list, out_dir, prokka_prefix,
         else:
             error_writer.write(amr_name+' no annotation was found in reference.\n')
 			#delete the AMR from the sequence folder
-            AMR_file = out_dir+AMR_SEQ_DIR+restricted_amr_name+'.fasta'
+            AMR_file = os.path.join(out_dir, AMR_SEQ_DIR, restricted_amr_name+'.fasta')
             if os.path.isfile(AMR_file):
                 os.remove(AMR_file)
     logging.info("NOTE: The annotation of neighborhood sequences in reference genome(s) has\
@@ -148,7 +149,7 @@ def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, out_dir,
 	if genome_file == '':
 		logging.error('Please enter the address of '+type+' file!')
 		sys.exit()
-	blast_file_name = out_dir+'blast_out_'+type+'.csv'
+	blast_file_name = os.path.join(out_dir, 'blast_out_'+type+'.csv')
 	if not os.path.isfile(blast_file_name):
 		# Find the length of each AMR sequence
 		amr_objects = extract_amr_length(amr_sequences_file)
@@ -161,8 +162,8 @@ def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, out_dir,
 						"-outfmt", "10", "-evalue", "0.5", "-perc_identity", str(threshold-1),
 						"-num_threads", "4"], stdout=blast_file, check= True)
 		blast_file.close()
-	AMR_dir = out_dir+AMR_SEQ_DIR
-	ng_file = out_dir+'AMR_'+type+'_neighborhood.fasta'
+	AMR_dir = os.path.join(out_dir, AMR_SEQ_DIR)
+	ng_file = os.path.join(out_dir, 'AMR_'+type+'_neighborhood.fasta')
 	if not os.path.exists(AMR_dir) or not os.path.isfile(ng_file):
 		#Read the blast result
 		amr_list = []
@@ -257,7 +258,8 @@ def find_all_amrs_and_neighborhood(amr_sequences_file, genome_file, out_dir,
 
 	return zip(amr_list, ng_lists)
 
-def find_annotate_amrs_in_ref(seq, db, prokka_prefix, use_RGI, RGI_include_loose, output_dir):
+def find_annotate_amrs_in_ref(seq, db, neighborhood_len, amr_threshold, prokka_prefix,
+								use_RGI, RGI_include_loose, output_dir):
 	"""
 	"""
 	if seq and db:
@@ -266,8 +268,8 @@ def find_annotate_amrs_in_ref(seq, db, prokka_prefix, use_RGI, RGI_include_loose
 		if len(ref_files)==1:
 			db = ref_files[0]
 		elif len(ref_files)>1:
-			db = concatenate_files(ref_files, output_dir+'metagenome_ref.fasta')
-		out_dir = output_dir+AMR_DIR_NAME
+			db = concatenate_files(ref_files, os.path.join(output_dir, 'metagenome_ref.fasta'))
+		out_dir = os.path.join(output_dir, AMR_DIR_NAME)
 		if not os.path.exists(out_dir):
 			os.makedirs(out_dir)
 		else:
@@ -277,7 +279,8 @@ def find_annotate_amrs_in_ref(seq, db, prokka_prefix, use_RGI, RGI_include_loose
 				logging.error("Error: %s - %s." % (e.filename, e.strerror))
 			os.makedirs(out_dir)
 
-		ref_ng_info = find_all_amrs_and_neighborhood(seq, db, out_dir)
+		ref_ng_info = find_all_amrs_and_neighborhood(seq, db, out_dir, neighborhood_len=neighborhood_len,
+															threshold=amr_threshold)
 		annotation_file = annotate_neighborhood_sequences(ref_ng_info, out_dir,
 								prokka_prefix, use_RGI, RGI_include_loose)
 		return 1
@@ -288,51 +291,63 @@ def find_annotate_amrs_in_ref(seq, db, prokka_prefix, use_RGI, RGI_include_loose
 def find_ref_amrs_main(params):
 	"""
 	"""
-	if find_annotate_amrs_in_ref(params.amr_db, params.ref_genome_files, params.PROKKA_COMMAND_PREFIX,
+	if find_annotate_amrs_in_ref(params.amr_db, params.ref_genome_files, params.seq_length,
+							params.amr_identity_threshold, params.PROKKA_COMMAND_PREFIX,
 							params.use_RGI, params.RGI_include_loose, params.output_dir)==-1:
 		print('please enter the path for the sample file and amr sequences file')
 		import pdb; pdb.set_trace()
 		sys.exit()
 
-def create_ref_arguments(params, parser):
+def update_ref_params(params, config):
 	"""
 	"""
-	parser.add_argument('--ref_genome_files', type=str, default=params.ref_genome_files,
-		help='the path of the file or directory containing the (meta)genome sample')
-	parser.add_argument('--amr_db', type=str, default = params.amr_db,
-		help = 'the path of the fasta file containing all AMR sequences')
-	parser.add_argument('--main_dir', '-m', type = str, default=params.main_dir,
-		help = 'the main dir to retrieve required files')
-	# parser.add_argument('--use_RGI', type = str2bool, default = params.use_RGI,
-	# 	help = 'Whether to contribute RGI annotation in Prokka result')
-	# parser.add_argument('--RGI_include_loose', type = str2bool, default = params.RGI_include_loose,
-	# 	help = 'Whether to include loose cases in RGI result')
-	# parser.add_argument('--PROKKA_COMMAND_PREFIX', type = str, default = params.PROKKA_COMMAND_PREFIX,
-	# 	help = 'Set only if prokka is run through docker')
-	# parser.add_argument('--output_dir', '-O', type = str, default=params.output_dir,
-	# 	help = 'the output dir to store the results')
-	return parser
+	config_params = config.keys()
+	main_dir_changed = False
+	if 'main_dir' in config_params and os.path.realpath(config['main_dir'])!=os.path.realpath(params.main_dir):
+		main_dir_changed = True
+		#changes params variables dependant on main_dir only accessible through params.py
+		params.output_dir = params.output_dir.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.amr_files = params.amr_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.ref_ng_annotations_file = params.ref_ng_annotations_file.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.metagenome_file = params.metagenome_file.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.ng_seq_files = params.ng_seq_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.ng_path_info_files = params.ng_path_info_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+	if 'PROKKA_COMMAND_PREFIX' in config_params:
+		params.PROKKA_COMMAND_PREFIX = config['PROKKA_COMMAND_PREFIX']
+	if 'ref_genome_files' in config_params:
+		params.ref_genome_files = config['ref_genome_files']
+	elif main_dir_changed:
+		params.ref_genome_files = params.ref_genome_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))		
+	if 'amr_db' in config_params and config['amr_db']!='':
+		params.amr_db = config['amr_db']
+	if 'amr_identity_threshold' in config_params:
+		params.amr_identity_threshold = config['amr_identity_threshold']
+	if 'seq_length' in config_params:
+		params.seq_length = config['seq_length']
+	if 'use_RGI' in config_params:
+		params.use_RGI = config['use_RGI']
+	if 'RGI_include_loose' in config_params:
+		params.RGI_include_loose = config['RGI_include_loose']
+	if main_dir_changed:
+		params.main_dir = config['main_dir']
 
-def update_ref_params(params, args):
-	params.ref_genome_files = args.ref_genome_files
-	params.amr_db = args.amr_db
-	params.main_dir = args.main_dir
-	#params.use_RGI = args.use_RGI
-	#params.RGI_include_loose = args.RGI_include_loose
-	#params.PROKKA_COMMAND_PREFIX = args.PROKKA_COMMAND_PREFIX
-	#params.output_dir = args.output_dir
 	return params
 
 if __name__=="__main__":
 	import params
 	text = 'This code is used to find all AMRs available in a metagenome sample'
 	parser = argparse.ArgumentParser(description=text)
-	parser = create_ref_arguments(params, parser)
+	parser.add_argument('--config_file', '-C', type = str, default='',
+		help = 'the config file to set parameters for find_ref_amrs()')
 	args = parser.parse_args()
-	params = update_ref_params(params, args)
+    # Read config file into a dictionery
+	print("Reading the config file '"+args.contig_file+"' ...")
+	with open(args.config_file, 'r') as yamlfile:
+		data = yaml.load(yamlfile, Loader=yaml.FullLoader)
+	params = update_ref_params(params, data)
 	log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
 	initialize_logger(params.main_dir, log_name)
-	print_parameters(params, "find_ref_amrs")
+	validate_print_parameters(params, "find_ref_amrs")
 	#create the output directory; if it exists, delete it and create a new one
 	if not os.path.exists(params.output_dir):
 		os.makedirs(params.output_dir)

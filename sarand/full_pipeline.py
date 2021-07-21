@@ -45,7 +45,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import math
-
+import yaml
 
 from sarand.params import Pipeline_tasks, Insertion_type, Assembler_name
 from sarand.extract_neighborhood import neighborhood_graph_extraction, neighborhood_sequence_extraction,\
@@ -62,17 +62,17 @@ from sarand.utils import initialize_logger, check_reads, str2bool, print_params,
 			read_info_from_overlap_ref_files, extract_unique_align_files,\
 			read_path_info_from_align_file, concatenate_files, read_path_info_from_align_file_with_multiple_amrs,\
 			extract_path_info_for_amrs, compare_two_sequences, split_up_down_seq,\
-			delete_lines_started_with, validate_task_values, print_parameters
+			delete_lines_started_with, validate_task_values, validate_print_parameters
 from sarand.find_amrs_in_sample import find_annotate_amrs_in_ref
 
 ASSEMBLY_FILE = 'assembly_graph_with_scaffolds.gfa'
 CONTIG_FILE = 'contigs.fasta'
 #ALL_AMR_SEQUENCES ='nucleotide_fasta_protein_homolog_model_without_efflux_without_space.fasta'
-AMR_DIR_NAME = 'AMR_info/'
-AMR_SEQ_DIR = 'sequences/'
-AMR_ALIGN_DIR = 'alignments/'
+AMR_DIR_NAME = 'AMR_info'
+AMR_SEQ_DIR = 'sequences'
+AMR_ALIGN_DIR = 'alignments'
 AMR_OVERLAP_FILE = 'overlaps.txt'
-SUBGRAPH_DIR_NAME = 'subgraphs/'
+SUBGRAPH_DIR_NAME = 'subgraphs'
 SEQ_DIR_NAME = 'sequences_info'
 SEQ_NAME_PREFIX = 'ng_sequences_'
 ANNOTATION_DIR = 'annotations'
@@ -165,7 +165,7 @@ def insert_amr_in_location(genome_file, amr_seq, location, output_dir):
 		the address of the generated file after the process
 	"""
 	base=os.path.basename(genome_file)
-	new_file_name = output_dir+os.path.splitext(base)[0]+'_'+str(location)+os.path.splitext(base)[1]
+	new_file_name = os.path.join(output_dir,os.path.splitext(base)[0]+'_'+str(location)+os.path.splitext(base)[1])
 	new_file = open(new_file_name, 'w')
 	with open(genome_file, 'r') as read_obj:
 		for count,line in enumerate(read_obj):
@@ -174,63 +174,6 @@ def insert_amr_in_location(genome_file, amr_seq, location, output_dir):
 			new_file.write(line)
 	new_file.close()
 	return new_file_name
-
-def create_metagenome_with_amr_insertion(ref_genome_files, number_of_insertions,insertion_type,
-						insertion_locations, amr_file, output_dir, metagenome_file = 'metagenome.fasta'):
-	"""
-	To create a metagenome sample from some genomes after inserting the AMR gene in them
-	Parameters:
-		ref_genome_files:	the list of reference genomes in which AMR gene is supposed to be inserted
-		number_of_insertions:	the number of times the AMR gene is supposed o be inserted in different locations
-		insertion_type: the location of insertion can be "assigned" by user or can be choose "random"
-		insertion_locations: the list of locations to insert the AMR gene in case
-			insertion_type = assigned
-		amr_file:	the address of AMR file
-		output_dir:	the path for the output directory
-		metagenome_file: the name of the metagenome file
-	Return:
-		The list of name of genome files with AMR inserted in them and the address of metagenome_file
-	"""
-	#some validations
-	if len(params.number_of_insertions) != len(params.ref_genome_files):
-		logging.error("ERROR: Please specify the number of insertions for each reference genome.")
-		import pdb; pdb.set_trace()
-		sys.exit()
-	if params.insertion_type == Insertion_type.assigned and \
-		len(params.insertion_locations)!= sum(params.number_of_insertions):
-		logging.error("ERROR: Please specify the location of insertion for all insertions OR \
-			if you prefer them to be chosen randomely choose 1 for --insertion_type")
-		import pdb; pdb.set_trace()
-		sys.exit()
-
-	if not os.path.exists(output_dir):
-		os.makedirs(output_dir)
-	if (os.path.isfile(output_dir+metagenome_file)):
-		logging.error('ERROR: A file named ' + metagenome_file + ' already exits in '+output_dir)
-		import pdb; pdb.set_trace()
-		sys.exit()
-
-	insert_counter = 0
-	genome_files = []
-	amr_seq, _ = retrieve_AMR(amr_file)
-	meta_file = open(output_dir+metagenome_file, 'a')
-	for genome, insert_number in zip(ref_genome_files, number_of_insertions):
-		if insertion_type.name == 'random':
-			#find the number of lines in genome file
-			lc = sum(1 for l in open(genome))
-		for insertions in range(insert_number):
-			if insertion_type.name == 'random':
-				insert_location = random.randint(1,lc)
-				new_file = insert_amr_in_location(genome, amr_seq, insert_location, output_dir)
-			else:
-				new_file = insert_amr_in_location(genome, amr_seq, insertion_locations[insert_counter], output_dir)
-			genome_files.append(new_file)
-			cat_command = subprocess.run(["cat", new_file], stdout=meta_file, check=True)
-			# command = 'cat '+new_file+' >> ' + output_dir + metagenome_file
-			# os.system(command)
-			insert_counter+=1
-	meta_file.close()
-	return genome_files, output_dir + metagenome_file
 
 def simulate_reads(metagenome_file, read_length, art_path, fcov = 20, sdev = 10):
 	"""
@@ -301,10 +244,10 @@ def do_assembly(reads, spades_path, output_dir, thread_num = 16, error_correctio
 	spade_command = subprocess.run(arg_list,  stdout=subprocess.PIPE,  stderr=subprocess.PIPE, check= True)
 	logging.info(spade_command.stdout.decode('utf-8'))
 	#remove paths from GFA file
-	gfa_file = output_dir + '/'+ ASSEMBLY_FILE
+	gfa_file = os.path.join(output_dir, ASSEMBLY_FILE)
 	delete_lines_started_with('P', gfa_file)
 
-	contig_file = output_dir + '/' + CONTIG_FILE
+	contig_file = os.path.join(output_dir , CONTIG_FILE)
 
 	return gfa_file, contig_file
 
@@ -533,7 +476,7 @@ def check_coverage_consistency_remove_rest_seq(seq_info_list_input,
 			remained_seqs.append(seq_info)
 
 	#Initialize coverage file
-	coverage_annotation = annotate_dir+'coverage_annotation_'+str(coverage_thr)+'_'+amr_name+'.csv'
+	coverage_annotation = os.path.join(annotate_dir,'coverage_annotation_'+str(coverage_thr)+'_'+amr_name+'.csv')
 	with open(coverage_annotation,'w') as fd:
 		writer = csv.writer(fd)
 		writer.writerow(['seq_name', 'seq_value', 'seq_length', 'gene',
@@ -832,7 +775,7 @@ def extract_seq_annotation(annotate_dir, prokka_prefix, use_RGI, RGI_include_loo
 	"""
 	counter, ext_seq = seq_pair
 	seq_description = 'extracted'+str(counter)
-	seq_info_list = annotate_sequence(ext_seq, seq_description, annotate_dir+'/',
+	seq_info_list = annotate_sequence(ext_seq, seq_description, annotate_dir,
 									prokka_prefix, use_RGI, RGI_include_loose)
 	return seq_info_list
 
@@ -956,14 +899,14 @@ def test_function():
 	amr_seq, _ = retrieve_AMR('411.fasta')
 	annotate_dir = 'Experiments/1_1_1_limit/test_411/'
 	os.makedirs(annotate_dir)
-	annotation_detail_name = annotate_dir+'/annotation_detail.csv'
+	annotation_detail_name = os.path.join(annotate_dir,'annotation_detail.csv')
 	annotation_detail = open(annotation_detail_name, mode='w', newline='')
 	annotation_writer = csv.writer(annotation_detail)
 	annotation_writer.writerow(["seq_name", "seq_value", "seq_length",\
 								"gene", "prokka_gene_name", "product", \
 								"length", "start_pos", "end_pos", 'RGI_prediction_type'])
-	ref_file_name = annotate_dir+ 'ref_neighborhood_sequences_1000_'+\
-		datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt'
+	ref_file_name = os.path.join(annotate_dir, 'ref_neighborhood_sequences_1000_'+\
+		datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt')
 	ref_file = open(ref_file_name, 'w')
 	ref_genome_files = extract_files('Experiments/1_1_1_limit/metagenome_data/', 'please provide the address of genome files')
 	for genome_file in ref_genome_files:
@@ -976,7 +919,7 @@ def test_function():
 			ref_file.write("> " + genome_name+'_'+str(index+1) + " :\n")
 			ref_file.write(seq+"\n")
 			seq_description = 'ref_'+genome_name+'_'+str(index+1)
-			seq_info = annotate_sequence(seq+"\n", seq_description, annotate_dir+'/',
+			seq_info = annotate_sequence(seq+"\n", seq_description, annotate_dir,
 										'docker run -v `pwd`:/data staphb/prokka:latest ', True, False)
 			for gene_info in seq_info:
 					annotation_writer.writerow([seq_description, seq, len(seq),
@@ -1016,8 +959,8 @@ def annotate_ref_genomes(amr_file, output_name, seq_length, ref_genome_files, am
 	#not necessarily unique values are stored here
 	ref_seq_info_list = []
 	amr_seq, _ = retrieve_AMR(amr_file)
-	ref_file_name = annotate_dir+'/ref_neighborhood_sequences'+output_name+'_'+\
-		str(seq_length)+'_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt'
+	ref_file_name = os.path.join(annotate_dir,'ref_neighborhood_sequences'+output_name+'_'+\
+		str(seq_length)+'_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt')
 	ref_file = open(ref_file_name, 'w')
 	for genome_file in ref_genome_files:
 		seq_list, _ = extract_amr_neighborhood_in_ref_genome(amr_seq, genome_file, seq_length, amr_threshold)
@@ -1398,8 +1341,8 @@ def extract_ref_neighborhood_and_annotate(amr_file, amr_name, cami_info, seq_len
 	ref_amr_info_list = []
 	ref_seq_info_list = []
 	amr_seq, _ = retrieve_AMR(amr_file)
-	ref_file_name = annotate_dir+'/ref_neighborhood_sequences_'+amr_name+'_'+\
-		str(seq_length)+'_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt'
+	ref_file_name = os.path.join(annotate_dir,'ref_neighborhood_sequences_'+amr_name+'_'+\
+		str(seq_length)+'_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.txt')
 	ref_file = open(ref_file_name, 'w')
 	seq_list, contig_name_list = extract_amr_neighborhood_in_ref_genome(amr_seq, ref_CAMI_file, seq_length, amr_threshold)
 	#AMR sequence might be in multiple places in ref genome so we have a list of
@@ -1419,7 +1362,7 @@ def extract_ref_neighborhood_and_annotate(amr_file, amr_name, cami_info, seq_len
 		ref_file.write("> " + contig_name+" :\n")
 		ref_file.write(seq+"\n")
 		seq_description = 'ref_'+contig_name
-		seq_info = annotate_sequence(seq+"\n", seq_description, annotate_dir+'/',
+		seq_info = annotate_sequence(seq+"\n", seq_description, annotate_dir,
 									prokka_prefix, use_RGI, RGI_include_loose)
 		myLine1 = myLine2 = seq_description + ':\t'
 		found, ref_amr_info , ref_up_info, ref_down_info, seq_info = split_up_down_info(seq, seq_info)
@@ -1571,16 +1514,16 @@ def neighborhood_annotation_parallel(amr_name, neighborhood_seq_file,
 	"""
 	logging.debug('Started annotation for '+amr_name)
 	# initializing required files and directories
-	annotate_dir = output_dir+ANNOTATION_DIR+'/'+ANNOTATION_DIR+'_'+str(seq_length)+'/annotation'+output_name+'_'+str(seq_length)
+	annotate_dir = os.path.join(output_dir,ANNOTATION_DIR, ANNOTATION_DIR+'_'+str(seq_length),'annotation'+output_name+'_'+str(seq_length))
 	if os.path.exists(annotate_dir):
 		try:
 			shutil.rmtree(annotate_dir)
 		except OSError as e:
 			logging.error("Error: %s - %s." % (e.filename, e.strerror))
 	os.makedirs(annotate_dir)
-	error_file =output_dir+ANNOTATION_DIR+'/'+ANNOTATION_DIR+'_'+str(seq_length) + "/not_found_annotation_amrs_in_graph.txt"
-	annotation_detail_name = annotate_dir+'/annotation_detail'+output_name+'.csv'
-	trimmed_annotation_info_name = annotate_dir+'/trimmed_annotation_info'+output_name+'.csv'
+	error_file =os.path.join(output_dir, ANNOTATION_DIR, ANNOTATION_DIR+'_'+str(seq_length), "not_found_annotation_amrs_in_graph.txt")
+	annotation_detail_name = os.path.join(annotate_dir,'annotation_detail'+output_name+'.csv')
+	trimmed_annotation_info_name = os.path.join(annotate_dir, 'trimmed_annotation_info'+output_name+'.csv')
 	annotation_detail = open(annotation_detail_name, mode='w', newline='')
 	trimmed_annotation_info = open(trimmed_annotation_info_name, mode='w', newline='')
 	annotation_writer = csv.writer(annotation_detail)
@@ -1592,9 +1535,9 @@ def neighborhood_annotation_parallel(amr_name, neighborhood_seq_file,
 				'target_amr':'target_amr'}
 	write_info_in_annotation_file(annotation_writer, trimmed_annotation_writer,
 								gene_info, use_RGI, False, 'seq_length')
-	gene_file_name = annotate_dir+'/seq_comparison_genes'+output_name+'.txt'
+	gene_file_name = os.path.join(annotate_dir, 'seq_comparison_genes'+output_name+'.txt')
 	gene_file = open(gene_file_name, 'w')
-	product_file_name = annotate_dir+'/seq_comparison_products'+output_name+'.txt'
+	product_file_name = os.path.join(annotate_dir,'seq_comparison_products'+output_name+'.txt')
 	product_file = open(product_file_name, 'w')
 
 	#annotate the sequences extraced from assembly graph
@@ -1652,7 +1595,7 @@ def extract_graph_seqs_annotation(amr_name, path_info_file, neighborhood_seq_fil
 			if line.startswith('>') or line.startswith('Path') or line.startswith('The'):
 				continue
 			seq_description = 'extracted'+str(counter)
-			seq_info = annotate_sequence(line, seq_description, annotate_dir+'/',
+			seq_info = annotate_sequence(line, seq_description, annotate_dir,
 											prokka_prefix, use_RGI, RGI_include_loose)
 			#extract amr from seq_info
 			amr_found, amr_info, up_info, down_info, seq_info = split_up_down_info(line[:-1], seq_info)
@@ -1722,15 +1665,15 @@ def neighborhood_annotation(amr_name, neighborhood_seq_file,
 	"""
 	logging.debug('Started annotation for '+amr_name)
 	# initializing required files and directories
-	annotate_dir = output_dir+ANNOTATION_DIR+'/'+ANNOTATION_DIR+'_'+str(seq_length)+'/annotation'+output_name+'_'+str(seq_length)
+	annotate_dir = os.path.join(output_dir,ANNOTATION_DIR, ANNOTATION_DIR+'_'+str(seq_length), 'annotation'+output_name+'_'+str(seq_length))
 	if os.path.exists(annotate_dir):
 		try:
 			shutil.rmtree(annotate_dir)
 		except OSError as e:
 			logging.error("Error: %s - %s." % (e.filename, e.strerror))
 	os.makedirs(annotate_dir)
-	annotation_detail_name = annotate_dir+'/annotation_detail'+output_name+'.csv'
-	trimmed_annotation_info_name = annotate_dir+'/trimmed_annotation_info'+output_name+'.csv'
+	annotation_detail_name = os.path.join(annotate_dir,'annotation_detail'+output_name+'.csv')
+	trimmed_annotation_info_name = os.path.join(annotate_dir,'trimmed_annotation_info'+output_name+'.csv')
 	annotation_detail = open(annotation_detail_name, mode='w', newline='')
 	trimmed_annotation_info = open(trimmed_annotation_info_name, mode='w', newline='')
 	#annotation_writer = csv.writer(annotation_detail, delimiter=',', quoting=csv.QUOTE_MINIMAL)
@@ -1743,9 +1686,9 @@ def neighborhood_annotation(amr_name, neighborhood_seq_file,
 				'target_amr':'target_amr'}
 	write_info_in_annotation_file(annotation_writer, trimmed_annotation_writer,
 								gene_info, use_RGI, False, 'seq_length')
-	gene_file_name = annotate_dir+'/seq_comparison_genes'+output_name+'.txt'
+	gene_file_name = os.path.join(annotate_dir,'seq_comparison_genes'+output_name+'.txt')
 	gene_file = open(gene_file_name, 'w')
-	product_file_name = annotate_dir+'/seq_comparison_products'+output_name+'.txt'
+	product_file_name = os.path.join(annotate_dir,'seq_comparison_products'+output_name+'.txt')
 	product_file = open(product_file_name, 'w')
 	#annotate the sequences extraced from assembly graph
 	all_seq_info_list = extract_graph_seqs_annotation(amr_name, path_info_file, neighborhood_seq_file,
@@ -1780,7 +1723,7 @@ def is_there_amr_in_graph_check_longer_paths_incrementally(amr_name, gfa_file, o
 	#amr_name = os.path.splitext(os.path.basename(amr_file))[0]
 	amr_name = extract_name_from_file_name(amr_file)
 	logging.info('Checking if AMR "'+amr_name+'" exists in the assembly graph...')
-	output_name=output_dir+amr_name+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+	output_name=os.path.join(output_dir,amr_name+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 	found = False
 	path_nodes = 10
 	while (not found) and (path_nodes < MAX_PATH_NODES):
@@ -1822,7 +1765,7 @@ def is_there_amr_in_graph(gfa_file, output_dir, bandage_path, threshold, amr_fil
 	"""
 	amr_name = extract_name_from_file_name(amr_file)
 	logging.info('Checking if AMR "'+amr_name+'" exists in the assembly graph...')
-	output_name=output_dir+amr_name+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+	output_name=os.path.join(output_dir,amr_name+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 	if os.path.isfile(output_name+'.tsv'):
 		os.remove(output_name+'.tsv')
 	bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, amr_file,
@@ -1893,7 +1836,7 @@ def are_there_amrs_in_graph(gfa_file, output_dir, bandage_path, threshold, amr_o
 	cat_file, amr_files = amr_object
 	amr_names = [extract_name_from_file_name(e) for e in amr_files]
 	logging.info('Checking if AMRs "'+str(amr_names)+'" exists in the assembly graph...')
-	output_name=output_dir+extract_name_from_file_name(cat_file)+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+	output_name=os.path.join(output_dir, extract_name_from_file_name(cat_file)+'_align_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 	if os.path.isfile(output_name+'.tsv'):
 		os.remove(output_name+'.tsv')
 	bandage_command = subprocess.run([bandage_path, "querypaths", gfa_file, cat_file,
@@ -1925,7 +1868,7 @@ def find_amrs_alignment_in_graph_parallel(gfa_file, output_dir, amr_files, banda
 	Return:
 
 	"""
-	align_dir = output_dir+AMR_DIR_NAME+AMR_ALIGN_DIR
+	align_dir = os.path.join(output_dir, AMR_DIR_NAME, AMR_ALIGN_DIR)
 	if not os.path.exists(align_dir):
 		os.makedirs(align_dir)
 	else:
@@ -1946,7 +1889,7 @@ def find_amrs_alignment_in_graph_parallel(gfa_file, output_dir, amr_files, banda
 	#concatenate files of each group into a single file
 	amr_objects = []
 	for i, file_group in enumerate(amr_file_groups):
-		cat_file = output_dir+AMR_DIR_NAME+ 'amr_group_'+str(i)+'.fasta'
+		cat_file = os.path.join(output_dir,AMR_DIR_NAME, 'amr_group_'+str(i)+'.fasta')
 		concatenate_files(file_group, cat_file)
 		amr_objects.append((cat_file, file_group))
 	#find AMRs parallel
@@ -1956,7 +1899,7 @@ def find_amrs_alignment_in_graph_parallel(gfa_file, output_dir, amr_files, banda
 		paths_info_group_list = p.map(p_find_amr_align, amr_objects)
 
 	#write the list of AMRs not found
-	found_writer = open(output_dir+AMR_DIR_NAME+NOT_FOUND_FILE, 'w')
+	found_writer = open(os.path.join(output_dir,AMR_DIR_NAME, NOT_FOUND_FILE), 'w')
 	not_found_amr_names = []
 	unique_amr_files = []
 	unique_amr_infos = []
@@ -1987,7 +1930,7 @@ def find_amrs_alignment_in_graph_parallel(gfa_file, output_dir, amr_files, banda
 			not_found_amr_names.append(amr_name)
 			found_writer.write(amr_name+'\n')
 	# write the list of groups in each all AMRs have overlaped paths into a file
-	overlap_file_name = output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
+	overlap_file_name = os.path.join(output_dir,AMR_DIR_NAME, AMR_OVERLAP_FILE)
 	overlap_file = open(overlap_file_name, 'w')
 	for amr_info in unique_amr_infos:
 		overlap_file.write(amr_info['name']+":")
@@ -2014,7 +1957,7 @@ def find_amrs_alignment_in_graph(gfa_file, output_dir, amr_files, bandage_path, 
 	Return:
 
 	"""
-	align_dir = output_dir+AMR_DIR_NAME+AMR_ALIGN_DIR
+	align_dir = os.path.join(output_dir, AMR_DIR_NAME, AMR_ALIGN_DIR)
 	if not os.path.exists(align_dir):
 		os.makedirs(align_dir)
 	else:
@@ -2025,7 +1968,7 @@ def find_amrs_alignment_in_graph(gfa_file, output_dir, amr_files, bandage_path, 
 		os.makedirs(align_dir)
 
 	#write the list of AMRs not found
-	found_writer = open(output_dir+AMR_DIR_NAME+NOT_FOUND_FILE, 'w')
+	found_writer = open(os.path.join(output_dir,AMR_DIR_NAME, NOT_FOUND_FILE), 'w')
 	not_found_amr_names = []
 	unique_amr_files = []
 	unique_amr_infos = []
@@ -2055,7 +1998,7 @@ def find_amrs_alignment_in_graph(gfa_file, output_dir, amr_files, bandage_path, 
 			not_found_amr_names.append(amr_name)
 			found_writer.write(amr_name+'\n')
 	# write the list of groups in each all AMRs have overlaped paths into a file
-	overlap_file_name = output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
+	overlap_file_name = os.path.join(output_dir,AMR_DIR_NAME, AMR_OVERLAP_FILE)
 	overlap_file = open(overlap_file_name, 'w')
 	for amr_info in unique_amr_infos:
 		overlap_file.write(amr_info['name']+":")
@@ -2086,7 +2029,7 @@ def process_amr_group_and_find(gfa_file, align_dir, output_dir, bandage_path,
 	"""
 	g_id, amr_group = amr_object
 	#read info of the group into a single file
-	cat_file = output_dir+AMR_DIR_NAME+ 'amr_group_'+str(g_id)+'.fasta'
+	cat_file = os.path.join(output_dir,AMR_DIR_NAME, 'amr_group_'+str(g_id)+'.fasta')
 	file_group = []
 	with open(cat_file, 'w') as writer:
 		for amr_info in amr_group:
@@ -2120,7 +2063,7 @@ def find_all_amr_in_graph_parallel(gfa_file, output_dir, amr_sequences_file,
 	Return:
 
 	"""
-	align_dir = output_dir+AMR_DIR_NAME+AMR_ALIGN_DIR
+	align_dir = os.path.join(output_dir, AMR_DIR_NAME, AMR_ALIGN_DIR)
 	if not os.path.exists(align_dir):
 		os.makedirs(align_dir)
 
@@ -2181,10 +2124,10 @@ def find_all_amr_in_graph_parallel(gfa_file, output_dir, amr_sequences_file,
 
 	# write information (the sequence of found AMRs that don't have overlaped paths with others
 	# + the list of groups in each all AMRs have overlaped paths) into files
-	AMR_dir = output_dir+AMR_DIR_NAME+AMR_SEQ_DIR
+	AMR_dir = os.path.join(output_dir, AMR_DIR_NAME, AMR_SEQ_DIR)
 	if not os.path.exists(AMR_dir):
 		os.makedirs(AMR_dir)
-	overlap_file_name = output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
+	overlap_file_name = os.path.join(output_dir, AMR_DIR_NAME, AMR_OVERLAP_FILE)
 	overlap_file = open(overlap_file_name, 'w')
 	unique_amr_files = []
 	for i, seq in enumerate(unique_amr_seqs):
@@ -2215,7 +2158,7 @@ def find_all_amr_in_graph(gfa_file, output_dir, amr_sequences_file, bandage_path
 	Return:
 
 	"""
-	align_dir = output_dir+AMR_DIR_NAME+AMR_ALIGN_DIR
+	align_dir = os.path.join(output_dir,AMR_DIR_NAME, AMR_ALIGN_DIR)
 	if not os.path.exists(align_dir):
 		os.makedirs(align_dir)
 
@@ -2255,10 +2198,10 @@ def find_all_amr_in_graph(gfa_file, output_dir, amr_sequences_file, bandage_path
 							unique_amr_infos[id]['overlap_list'].append(amr_name)
 	# write information (the sequence of found AMRs that don't have overlaped paths with others
 	# + the list of groups in each all AMRs have overlaped paths) into files
-	AMR_dir = output_dir+AMR_DIR_NAME+AMR_SEQ_DIR
+	AMR_dir = os.path.join(output_dir,AMR_DIR_NAME, AMR_SEQ_DIR)
 	if not os.path.exists(AMR_dir):
 		os.makedirs(AMR_dir)
-	overlap_file_name = output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
+	overlap_file_name = os.path.join(output_dir, AMR_DIR_NAME, AMR_OVERLAP_FILE)
 	overlap_file = open(overlap_file_name, 'w')
 	unique_amr_files = []
 	for i, seq in enumerate(unique_amr_seqs):
@@ -2300,7 +2243,7 @@ def read_annotation_from_file(prokka_dir):
 	"""
 	#Go over Prokka's output files and extract required information
 	seq_info = []
-	with open(prokka_dir+'mygenome.tsv', 'r') as tsvfile:
+	with open(os.path.join(prokka_dir,'mygenome.tsv'), 'r') as tsvfile:
 		reader = DictReader(tsvfile, delimiter='\t')
 		for row in reader:
 			mygene = row['gene'].strip()
@@ -2315,7 +2258,7 @@ def read_annotation_from_file(prokka_dir):
 			seq_info.append(gene_info)
 	counter = 0
 	contig_name = ''
-	with open(prokka_dir+'mygenome.tbl', 'r') as read_obj:
+	with open(os.path.join(prokka_dir,'mygenome.tbl'), 'r') as read_obj:
 		for line in read_obj:
 			if line.startswith('>'):
 				contig_name = line.strip().split(' ')[1]
@@ -2327,8 +2270,8 @@ def read_annotation_from_file(prokka_dir):
 				counter+=1
 	#Read RGI output
 	RGI_output_list = []
-	if os.path.isfile(prokka_dir + 'rgi_output.txt'):
-		with open(prokka_dir + 'rgi_output.txt', newline = '') as rgi_file:
+	if os.path.isfile(os.path.join(prokka_dir , 'rgi_output.txt')):
+		with open(os.path.join(prokka_dir , 'rgi_output.txt'), newline = '') as rgi_file:
 			rgi_reader = csv.reader(rgi_file, delimiter='\t')
 			next(rgi_reader)
 			for row in rgi_reader:
@@ -2371,7 +2314,7 @@ def evaluate_pure_sequences_ref_subject(amr_name, neighborhood_seq_file, ref_up_
 		precision and sensitivity
 	"""
 	original_amr_name = retreive_original_amr_name(amr_name)
-	output_dir = os.path.dirname(evaluation_csv)+'/'
+	output_dir = os.path.dirname(evaluation_csv)
 	ref_len =  len(ref_up_seq_list)+len(ref_down_seq_list)
 	#read sequences from neighborhood_seq_file
 	up_seq_list = []
@@ -2512,7 +2455,7 @@ def evaluate_pure_sequences_ref_query(amr_name, neighborhood_seq_file, ref_up_se
 		precision and sensitivity
 	"""
 	original_amr_name = retreive_original_amr_name(amr_name)
-	output_dir = os.path.dirname(evaluation_csv)+'/'
+	output_dir = os.path.dirname(evaluation_csv)
 	ref_len =  len(ref_up_seq_list)+len(ref_down_seq_list)
 	#read sequences from neighborhood_seq_file
 	up_seq_list = []
@@ -2655,11 +2598,12 @@ def graph_extraction_main(params, gfa_file, graph_file, amr_seq_align_files):
 				'please provide the address of the file containing the assembly graph')
 	#remove paths from GFA file
 	delete_lines_started_with('P', gfa_file)
-	if not os.path.exists(params.output_dir+SUBGRAPH_DIR_NAME):
-		os.makedirs(params.output_dir+SUBGRAPH_DIR_NAME)
+	if not os.path.exists(os.path.join(params.output_dir,SUBGRAPH_DIR_NAME)):
+		os.makedirs(os.path.join(params.output_dir,SUBGRAPH_DIR_NAME))
 	if params.multi_processor:
 		p_subgraph = partial(neighborhood_graph_extraction, gfa_file, params.graph_distance,
-							params.output_dir+SUBGRAPH_DIR_NAME, params.BANDAGE_PATH,
+							os.path.join(params.output_dir,SUBGRAPH_DIR_NAME),
+							params.BANDAGE_PATH,
 							params.amr_identity_threshold, SEQ_NAME_PREFIX)
 		with Pool(params.core_num) as p:
 			p.map(p_subgraph, amr_seq_align_files)
@@ -2668,7 +2612,8 @@ def graph_extraction_main(params, gfa_file, graph_file, amr_seq_align_files):
 		for amr_file in amr_seq_align_files:
 			#output_name = 'ng_subgraph_'+os.path.splitext(os.path.basename(amr_file))[0]
 			_ = neighborhood_graph_extraction(gfa_file, params.graph_distance,
-				 				params.output_dir+SUBGRAPH_DIR_NAME, params.BANDAGE_PATH,
+				 				os.path.join(params.output_dir,SUBGRAPH_DIR_NAME),
+								params.BANDAGE_PATH,
 								params.amr_identity_threshold, SEQ_NAME_PREFIX, amr_file)
 
 
@@ -2689,7 +2634,7 @@ def annotation_evaluation_main(params, amr_files, coverage_annotation_list,
 	"""
 	logging.info("Neighborhood Evaluation ...")
 	#storing summary metrics
-	evaluation_dir = params.output_dir+EVAL_DIR+'/'+EVAL_DIR+'_'+str(params.seq_length)+'/'
+	evaluation_dir = os.path.join(params.output_dir, EVAL_DIR, EVAL_DIR+'_'+str(params.seq_length))
 	if not os.path.exists(evaluation_dir):
 		try:
 			os.makedirs(evaluation_dir)
@@ -2697,13 +2642,13 @@ def annotation_evaluation_main(params, amr_files, coverage_annotation_list,
 			if exc.errno != errno.EEXIST:
 				raise
 			pass
-	summary_file = evaluation_dir+'summaryMetrics_up_down_'+str(params.coverage_thr)+'_'+\
-		datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
+	summary_file = os.path.join(evaluation_dir,'summaryMetrics_up_down_'+str(params.coverage_thr)+'_'+\
+		datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv')
 	with open(summary_file,'a') as fd:
 		writer = csv.writer(fd)
 		writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision', 'not_found'])
 	#extract the list of AMR groups
-	overlap_file_name = params.output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
+	overlap_file_name = os.path.join(params.output_dir,AMR_DIR_NAME, AMR_OVERLAP_FILE)
 	heads, member_lists, _ = extract_info_from_overlap_file(overlap_file_name)
 	#to find the annotation of ref genomes for all AMRs
 	df = pd.read_csv(params.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
@@ -2726,14 +2671,14 @@ def annotation_evaluation_main(params, amr_files, coverage_annotation_list,
 		elif not coverage_annotation_list:
 			ref_up_info_list, ref_amr_info_list, ref_down_info_list =\
 				read_ref_annotations_from_db(amr_groups, amr_name)
-			annotate_dir = params.output_dir+ANNOTATION_DIR+'/'+ANNOTATION_DIR+'_'+\
-				str(params.seq_length)+'/annotation_'+restricted_amr_name+'_'+str(params.seq_length)
+			annotate_dir = os.path.join(params.output_dir,ANNOTATION_DIR, ANNOTATION_DIR+'_'+\
+				str(params.seq_length), 'annotation_'+restricted_amr_name+'_'+str(params.seq_length))
 			if params.coverage_thr >=0:
-				coverage_annotation = annotate_dir+'/coverage_annotation_'+\
-					str(params.coverage_thr)+'_'+restricted_amr_name+'.csv'
+				coverage_annotation = os.path.join(annotate_dir,'coverage_annotation_'+\
+					str(params.coverage_thr)+'_'+restricted_amr_name+'.csv')
 			else:
-				coverage_annotation = annotate_dir+'/trimmed_annotation_info_'+\
-					restricted_amr_name+'.csv'
+				coverage_annotation = os.path.join(annotate_dir,'trimmed_annotation_info_'+\
+					restricted_amr_name+'.csv')
 			sensitivity, precision = evaluate_sequences_up_down_based_on_coverage(
 					amr_name, coverage_annotation, summary_file,
 					ref_up_info_list, ref_down_info_list, ref_amr_info_list,
@@ -2745,14 +2690,14 @@ def annotation_evaluation_main(params, amr_files, coverage_annotation_list,
 	overlap_amr_counter = 0
 	for i, head in enumerate(heads):
 		restricted_head = restricted_amr_name_from_modified_name(head)
-		annotate_dir = params.output_dir+ANNOTATION_DIR+'/'+ANNOTATION_DIR+'_'+\
-			str(params.seq_length)+'/annotation_'+restricted_head+'_'+str(params.seq_length)
+		annotate_dir = os.path.join(params.output_dir, ANNOTATION_DIR, ANNOTATION_DIR+'_'+\
+			str(params.seq_length), 'annotation_'+restricted_head+'_'+str(params.seq_length))
 		if params.coverage_thr >=0:
-			coverage_annotation = annotate_dir+'/coverage_annotation_'+\
-				str(params.coverage_thr)+'_'+restricted_head+'.csv'
+			coverage_annotation = os.path.join(annotate_dir, 'coverage_annotation_'+\
+				str(params.coverage_thr)+'_'+restricted_head+'.csv')
 		else:
-			coverage_annotation = annotate_dir+'/trimmed_annotation_info_'+\
-				restricted_head+'.csv'
+			coverage_annotation = os.path.join(annotate_dir, 'trimmed_annotation_info_'+\
+				restricted_head+'.csv')
 		for amr_name in member_lists[i]:
 			ref_up_info_list, ref_amr_info_list, ref_down_info_list =\
 				read_ref_annotations_from_db(amr_groups, amr_name)
@@ -2787,11 +2732,11 @@ def construct_combined_annotation_file(coverage_annotation, amr_file, params):
 	Return:
 		a csv file containing both ref and graph annotations
 	"""
-	ref_seq_file = params.output_dir+AMR_DIR_NAME+'AMR_ref_neighborhood.fasta'
+	ref_seq_file = os.path.join(params.output_dir, AMR_DIR_NAME, 'AMR_ref_neighborhood.fasta')
 	_, amr_name = retrieve_AMR(amr_file)
 	restricted_amr_name = restricted_amr_name_from_modified_name(amr_name)
 	#initializ visual_annotation file
-	visual_annotation_csv =os.path.dirname(coverage_annotation)+'/vis_annotation.csv'
+	visual_annotation_csv =os.path.join(os.path.dirname(coverage_annotation),'vis_annotation.csv')
 	fd = open(visual_annotation_csv, 'w')
 	vis_writer = csv.writer(fd)
 	vis_writer.writerow(['seq_name', 'seq_value', 'seq_length', 'gene', 'coverage',
@@ -2803,7 +2748,7 @@ def construct_combined_annotation_file(coverage_annotation, amr_file, params):
 			ref_seq_list.append(str(record.seq))
 	#import pdb; pdb.set_trace()
 	#annotate ref sequences
-	annotate_dir = params.output_dir+'tmp_ref_annotations/'
+	annotate_dir = os.path.join(params.output_dir, 'tmp_ref_annotations')
 	if not os.path.exists(annotate_dir):
 		os.makedirs(annotate_dir)
 	for index, ref_seq in enumerate(ref_seq_list):
@@ -2846,14 +2791,14 @@ def seq_annotation_trim_main(params, amr_files, all_seq_info_lists,
 	for i, amr_file in enumerate(amr_files):
 		restricted_amr_name = extract_name_from_file_name(amr_file)
 		#remove some extracted sequences based on coverage consistency
-		annotate_dir = params.output_dir+ANNOTATION_DIR+'/'+ANNOTATION_DIR+'_'+\
-			str(params.seq_length)+'/annotation_'+restricted_amr_name+'_'+str(params.seq_length)
+		annotate_dir = os.path.join(params.output_dir,ANNOTATION_DIR, ANNOTATION_DIR+'_'+\
+			str(params.seq_length), 'annotation_'+restricted_amr_name+'_'+str(params.seq_length))
 		coverage_annotation = ''
 		remained_seqs = []
 		if params.coverage_thr>0:
 			coverage_annotation, remained_seqs = check_coverage_consistency_remove_rest_seq(\
 								all_seq_info_lists[i],
-								params.coverage_thr, restricted_amr_name, annotate_dir+'/')
+								params.coverage_thr, restricted_amr_name, annotate_dir)
 		if visualize:
 			# create an image presenting the annotations for all sequences
 			if params.ref_genomes_available:
@@ -2868,7 +2813,7 @@ def seq_annotation_trim_main(params, amr_files, all_seq_info_lists,
 					visual_annotation_csv = coverage_annotation
 				else:
 					visual_annotation_csv = annotation_files[i]
-			visual_annotation = annotate_dir+'/gene_comparison_'+str(params.coverage_thr)+'_'+restricted_amr_name+'.png'
+			visual_annotation = os.path.join(annotate_dir, 'gene_comparison_'+str(params.coverage_thr)+'_'+restricted_amr_name+'.png')
 			visualize_annotation(visual_annotation_csv, output=visual_annotation)
 		if params.coverage_thr>0:
 			coverage_annotation_list.append(coverage_annotation)
@@ -2970,7 +2915,7 @@ def seq_evaluation_main(params, seq_files, amr_files, not_found_amr_names):
 		logging.error('not able to evaluate as ref genome information is not available!')
 		sys.exit()
 	#Reading corresponding sequences in ref genomes
-	ref_seq_file = params.output_dir+AMR_DIR_NAME+'AMR_ref_neighborhood.fasta'
+	ref_seq_file = os.path.join(params.output_dir, AMR_DIR_NAME, 'AMR_ref_neighborhood.fasta')
 	ref_up_seq_list = collections.defaultdict(list)
 	ref_down_seq_list = collections.defaultdict(list)
 	for record in SeqIO.parse(open(ref_seq_file,'r'),'fasta'):
@@ -2981,16 +2926,16 @@ def seq_evaluation_main(params, seq_files, amr_files, not_found_amr_names):
 		if ref_down_seq!='' and ref_down_seq not in ref_down_seq_list[amr_name]:
 			ref_down_seq_list[amr_name].append(ref_down_seq)
 	#initializ required file
-	evaluation_csv =params.output_dir+'/sequence_evaluation_details.csv'
+	evaluation_csv =os.path.join(params.output_dir, 'sequence_evaluation_details.csv')
 	with open(evaluation_csv, 'a') as ed:
 		eval_writer = csv.writer(ed)
 		eval_writer.writerow(['amr_name', 'type', 'extracted_seq', 'ref_seq', 'identity', 'coverage'])
-	summary_file = params.output_dir+'summaryMetrics_sequence_'+str(seq_identity_thr)+'.csv'
+	summary_file = os.path.join(params.output_dir, 'summaryMetrics_sequence_'+str(seq_identity_thr)+'.csv')
 	with open(summary_file,'a') as fd:
 		writer = csv.writer(fd)
 		writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision', 'not_found'])
 	#extract the list of AMR groups
-	overlap_file_name = params.output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
+	overlap_file_name = os.path.join(params.output_dir, AMR_DIR_NAME, AMR_OVERLAP_FILE)
 	heads, member_lists, _ = extract_info_from_overlap_file(overlap_file_name)
 	#Going over amr files
 	average_precision = 0
@@ -3072,7 +3017,7 @@ def sequence_neighborhood_main(params, gfa_file, graph_file, amr_seq_align_info)
 				'please provide the address of the file containing the assembly graph')
 	#remove paths from GFA file
 	delete_lines_started_with('P', gfa_file)
-	sequence_dir = params.output_dir+SEQ_DIR_NAME+'/'+SEQ_DIR_NAME+'_'+str(params.seq_length)+'/'
+	sequence_dir = os.path.join(params.output_dir, SEQ_DIR_NAME, SEQ_DIR_NAME+'_'+str(params.seq_length))
 	if not os.path.exists(sequence_dir):
 		os.makedirs(sequence_dir)
 	if params.multi_processor:
@@ -3114,8 +3059,8 @@ def extract_amr_info(params, graph_file, ref_amr_files):
 		gfa_file = verify_file_existence(graph_file, params.gfa_file, \
 			'please provide the address of the file containing the assembly graph')
 		#if overlap.txt and alignment files have already generated just use them
-		align_dir = params.output_dir+AMR_DIR_NAME+AMR_ALIGN_DIR
-		overlap_file_name = params.output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
+		align_dir = os.path.join(params.output_dir, AMR_DIR_NAME, AMR_ALIGN_DIR)
+		overlap_file_name = os.path.join(params.output_dir, AMR_DIR_NAME, AMR_OVERLAP_FILE)
 		if os.path.exists(align_dir) and os.path.isfile(overlap_file_name):
 			all_align_files = extract_files(align_dir, "the directory "+align_dir+" doesn't exist!")
 			unique_amr_files, not_found_amr_names, amr_count = read_info_from_overlap_ref_files(
@@ -3152,8 +3097,8 @@ def extract_amr_info(params, graph_file, ref_amr_files):
 							params.amr_identity_threshold)
 	#if ref genomes are not available but the list of AMRs has already been found in the graph and is available
 	else:
-		align_dir = params.output_dir+AMR_DIR_NAME+AMR_ALIGN_DIR
-		overlap_file_name = params.output_dir+AMR_DIR_NAME+AMR_OVERLAP_FILE
+		align_dir = params.os.path.join(output_dir, AMR_DIR_NAME, AMR_ALIGN_DIR)
+		overlap_file_name = os.path.join(params.output_dir, AMR_DIR_NAME, AMR_OVERLAP_FILE)
 		#We assume that only unique AMRs (heads) are stored
 		unique_amr_files = extract_files(params.amr_files, 'please provide the address of the AMR gene(s)')
 		all_align_files = extract_files(align_dir, 'the alignments are not available!')
@@ -3172,44 +3117,30 @@ def full_pipeline_main(params):
 	logging.info("Startting the pipeline ...")
 	#Validate task values
 	task_list = validate_task_values(params.task)
-	# if params.artificial_amr_insertion and params.find_amr_genes:
-	# 	logging.error("variables 'artificial_amr_insertion' and 'find_amr_genes' cannot be True at the same run!")
-	# 	import pdb; pdb.set_trace()
-	# 	sys.exit()
 	graph_file =""
 	metagenome_file = ""
-	genome_amr_files = []
 	path_info_files = []
 	seq_files = []
 	reads = ""
 	gfa_file = None
 	ref_amr_files = []
 	ref_genome_files = []
-	if params.ref_genomes_available and params.artificial_amr_insertion:
-		if params.inserted_amr_file=='' or not os.path.isfile(params.inserted_amr_file):
-			logging.error("ERROR: no AMR file has been provided!")
-			import pdb; pdb.set_trace()
-			sys.exit()
 
 	if params.ref_genomes_available and (Pipeline_tasks.metagenome_creation.value in task_list or
-										 not os.path.exists(params.output_dir+AMR_DIR_NAME)):
+							not os.path.exists(os.path.join(params.output_dir,AMR_DIR_NAME))):
 		ref_genome_files = extract_files(params.ref_genome_files, 'please provide the address of genome files')
 		if Pipeline_tasks.metagenome_creation.value in task_list:
 			logging.info("Creating the metagenome sample ...")
-			if params.artificial_amr_insertion:
-				genome_amr_files, metagenome_file = create_metagenome_with_amr_insertion(ref_genome_files,
-							params.number_of_insertions, params.insertion_type, params.insertion_locations,
-							params.inserted_amr_file, params.output_dir)
-			else:
-				metagenome_file = concatenate_files(ref_genome_files, params.metagenome_file)
+			metagenome_file = concatenate_files(ref_genome_files, params.metagenome_file)
 		#if ref_genome is available and the directory containing detected AMR sequences
 		#is not available then call find_amrs_in sample.py first to detect the AMRs from the ref sample
-		if not os.path.exists(params.output_dir+AMR_DIR_NAME):
+		if not os.path.exists(os.path.join(params.output_dir, AMR_DIR_NAME)):
 			#os.makedirs(params.output_dir+AMR_DIR_NAME)
 			# if find_annotate_amrs_in_ref(params.amr_db, params.metagenome_file,
 			# 								params.PROKKA_COMMAND_PREFIX, params.use_RGI,
 			# 								params.RGI_include_loose, params.output_dir)==-1:
 			if find_annotate_amrs_in_ref(params.amr_db, params.ref_genome_files,
+											params.seq_length, params.amr_identity_threshold,
 											params.PROKKA_COMMAND_PREFIX, params.use_RGI,
 											params.RGI_include_loose, params.output_dir)==-1:
 				print('please enter the path for the sample file and amr sequences file')
@@ -3228,7 +3159,7 @@ def full_pipeline_main(params):
 		logging.info("Assembly ...")
 		read_files = verify_file_existence(reads, params.reads, \
 			'please provide the address of paired end reads')
-		spade_output = params.output_dir + params.assembler_output_dir
+		spade_output = params.assembler_output_dir
 		graph_file, contigs_file = do_assembly(read_files, params.SPADES_PATH,
 										spade_output, params.spades_thread_num,
 										params.spades_error_correction)
@@ -3279,7 +3210,7 @@ def full_pipeline_main(params):
 		#if MULTIPLE_COV_THR:
 		if isinstance(params.coverage_thr, list) and len(coverage_thr)>1:
 			coverage_thr_list = params.coverage_thr
-			evaluation_dir = params.output_dir+EVAL_DIR+'/'+EVAL_DIR+'_'+str(params.seq_length)+'/'
+			evaluation_dir = os.path.join(params.output_dir, EVAL_DIR, EVAL_DIR+'_'+str(params.seq_length))
 			if not os.path.exists(evaluation_dir):
 				try:
 					os.makedirs(evaluation_dir)
@@ -3287,8 +3218,8 @@ def full_pipeline_main(params):
 					if exc.errno != errno.EEXIST:
 						raise
 					pass
-			coverage_evaluation_file = evaluation_dir+'coverage_evaluation_'+\
-				datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
+			coverage_evaluation_file = os.path.join(evaluation_dir, 'coverage_evaluation_'+\
+				datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv')
 			with open(coverage_evaluation_file,'a') as fd:
 				writer = csv.writer(fd)
 				writer.writerow(['coverage_thr', 'precision', 'sensitivity'])
@@ -3323,146 +3254,102 @@ def full_pipeline_main(params):
 
 	logging.info("All Done!")
 
-def create_arguments(params, parser):
+def update_full_pipeline_params(params, config):
 	"""
-	To create all required qrguments
 	"""
-	parser.add_argument('--task', nargs="+", default=params.task,
-		help="which task would you like to do?\
-		For the entire pipeline choose "+str(Pipeline_tasks.all.value)+"; otherwise\
-		either provide a number representing one of the following tasks or two numbers\
-		to denote the start and end tasks (and of course all tasks in the middle will be run).\n \
-		Here is the list:\nmetagenome_creation = "+str(Pipeline_tasks.metagenome_creation.value)+\
-		"\nread_simulation = "+str(Pipeline_tasks.read_simulation.value)+
-		"\nassembly = "+str(Pipeline_tasks.assembly.value)+
-		"\ngraph_neighborhood = "+str(Pipeline_tasks.graph_neighborhood.value)+\
-		"\nsequence_neighborhood = "+str(Pipeline_tasks.sequence_neighborhood.value)+\
-		"\nneighborhood_annotation = "+str(Pipeline_tasks.neighborhood_annotation.value)+\
-		"\nneighborhood_evaluation = "+str(Pipeline_tasks.neighborhood_evaluation.value))
-	parser.add_argument('--ref_genome_files', nargs="+", default=params.ref_genome_files,
-		help = 'the ddress of reference genomes that AMR genome will be inserted in them')
-	parser.add_argument('--main_dir', '-m', type = str, default=params.main_dir,
-		help = 'the main dir to retrieve required files')
-	parser.add_argument('--read_length',type=int, default=params.read_length,
-		help = 'the length of simulated reads can be either 150 or 250')
-	parser.add_argument('--spades_thread_num',type=int, default=params.spades_thread_num,
-		help = 'the number of threads used for MetaSPAdes')
-	parser.add_argument('--seq_length', '-L', type = int, default=params.seq_length,
-		help = 'the length of AMR gene\'s neighbourhood to be extracted')
-	parser.add_argument('--gfa_file', type = str, default = params.gfa_file,
-		help = 'the address of the file for assembly graph')
-	parser.add_argument('--contig_file', type = str, default = params.contig_file,
-		help = 'the address of the file containing contigs after assembly')
-	parser.add_argument('--reads', type = check_reads, default = params.reads,
-		help = 'the address of the files containing paired-end reads')
-	parser.add_argument('--find_amr_genes', type = str2bool, default = params.find_amr_genes,
-		help = 'Whether to assume the AMR genes (in metagenome) are known or to look for them in assembly graph')
-	parser.add_argument('--amr_identity_threshold', type = int, default = params.amr_identity_threshold,
-		help = 'the threshold used for amr alignment: a hit is returned if identity/coverage >= threshold')
-	parser.add_argument('--ref_genomes_available', type = str2bool, default = params.ref_genomes_available,
-		help = 'Whether we have access to reference genome(s)')
-	parser.add_argument('--multi_processor', type = str2bool, default = params.multi_processor,
-		help = 'Whether to use multi processors for parallel programming')
-	parser.add_argument('--core_num', type = int, default = params.core_num,
-		help = 'the number of cores used in case of parallel programming')
-	parser.add_argument('--coverage_thr', nargs="+", default = params.coverage_thr,
-		help = 'coverage threshold to check if an annotated gene is truly AMR neighbor or just a false positive')
-	# parser.add_argument('--ref_ng_annotations_file', type = str, default = params.ref_ng_annotations_file,
-	# 	help = 'the file containing the annotation of all neighborhoods extracted from ref genomes.')
-	# parser.add_argument('--prokka_prefix', type = str, default = params.PROKKA_COMMAND_PREFIX,
-	# 	help = 'Set only if prokka is run through docker')
-	# parser.add_argument('--amr_files','-A', type=str, default = params.amr_files,
-	# 	help = 'the path of the file(s) containing the AMR gene sequence(s)')
-	# parser.add_argument('--output_dir', '-O', type = str, default=params.output_dir,
-	# 	help = 'the output dir to store the results')
-	# parser.add_argument('--metagenome_file', type = str, default= params.metagenome_file,
-	# 	help = 'the address of metagenome file')
-	# parser.add_argument('--assembler_output_dir',type=str, default=params.assembler_output_dir,
-	# 	help = 'the output dir to store MetaSPAdes results')
-	# parser.add_argument('--graph_distance', '-D', type = int, default=params.graph_distance,
-	# 	help = 'the maximum distance of neighborhood nodes to be extracted from the AMR gene')
-	# parser.add_argument('--ng_seq_files', nargs="+", default = params.ng_seq_files,
-	# 	help = 'the address of the files containing all extracted neighborhood sequences in assembly graph')
-	# parser.add_argument('--ng_path_info_files', nargs="+", default = params.ng_path_info_files,
-	# 	help = 'the address of the files containing all path information for extracted neighborhood sequences in assembly graph')
-	# parser.add_argument('--spades_error_correction', type = str2bool, default = params.spades_error_correction,
-	# 	help = 'Whether to turn on or off error correction in MetaSPAdes')
-	# parser.add_argument('--use_RGI', type = str2bool, default = params.use_RGI,
-	# 	help = 'Whether to contribute RGI annotation in Prokka result')
-	# parser.add_argument('--RGI_include_loose', type = str2bool, default = params.RGI_include_loose,
-	# 	help = 'Whether to include loose cases in RGI result')
-	# parser.add_argument('--path_node_threshold', type = int, default = params.path_node_threshold,
-	# 	help = 'the threshold used for recursive pre_path and post_path search as long as the length of the path is less that this threshold')
-	# parser.add_argument('--path_seq_len_percent_threshold', type = int, default = params.path_seq_len_percent_threshold,
-	# 	help = 'the threshold used for recursive pre_seq and post_seq until we have this percentage of the required length\
-	# 	 after which we just extract from the longest neighbor')
-	# parser.add_argument('--number_of_insertions', type = int, default=params.number_of_insertions,
-	# 	help = 'the number of genomes generated by inserting AMR in different locations of reference genome')
-	# parser.add_argument('--insertion_type', type =Insertion_type , default=params.insertion_type,
-	# 	help = 'Should insertion locations be selected randomly (1) or using some defined values (2)')
-	# parser.add_argument('--insertion_locations', nargs="+", default = params.insertion_locations,
-	# 	help = 'list of predefined insertion locations to insert AMR in reference genome\
-	# 		if you chose multiple reference genomes first type the list of insertion locations\
-	# 		for the first genome followed by the list for the second and ...\
-	# 		please make sure the number of locations for each genome matches the\
-	# 		corresponding one specified in --num_insertion argument')
-	# parser.add_argument('--artificial_amr_insertion', type = str2bool, default = params.artificial_amr_insertion,
-	# 	help = 'Whether to insert the AMR gene in genomes artificially')
-	# parser.add_argument('--genome_amr_files', nargs="+", default = params.genome_amr_files,
-	# 	help = 'the address of the files containing genome after AMR insertion')
+	config_params = config.keys()
+	main_dir_changed = False
+	if 'main_dir' in config_params and os.path.realpath(config['main_dir'])!=os.path.realpath(params.main_dir):
+		main_dir_changed = True
+		#changes params variables dependant on main_dir only accessible through params.py
+		params.output_dir = params.output_dir.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.amr_files = params.amr_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.ref_ng_annotations_file = params.ref_ng_annotations_file.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.metagenome_file = params.metagenome_file.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.ng_seq_files = params.ng_seq_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+		params.ng_path_info_files = params.ng_path_info_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+	if 'task' in config_params:
+		params.task = config['task']
+	if 'ref_genome_files' in config_params:
+		params.ref_genome_files = config['ref_genome_files']
+	elif main_dir_changed:
+		params.ref_genome_files = params.ref_genome_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+	if 'read_length' in config_params:
+		params.read_length = config['read_length']
+	if 'spades_thread_num' in config_params:
+		params.spades_thread_num = config['spades_thread_num']
+	if 'seq_length' in config_params:
+		params.seq_length = config['seq_length']
+	if 'gfa_file' in config_params:
+		params.gfa_file = config['gfa_file']
+	elif main_dir_changed:
+		params.gfa_file = params.gfa_file.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+	if 'reads' in config_params:
+		params.reads = config['reads']
+	elif main_dir_changed:
+		params.reads = [read.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /')) for read in params.reads]
+	if 'find_amr_genes' in config_params:
+		params.find_amr_genes = config['find_amr_genes']
+	if 'amr_identity_threshold' in config_params:
+		params.amr_identity_threshold = config['amr_identity_threshold']
+	if 'ref_genomes_available' in config_params:
+		params.ref_genomes_available = config['ref_genomes_available']
+	if 'coverage_thr' in config_params:
+		params.coverage_thr = config['coverage_thr']
+	if 'multi_processor' in config_params:
+		params.multi_processor = config['multi_processor']
+	if 'core_num' in config_params:
+		params.core_num = config['core_num']
+	if 'BANDAGE_PATH' in config_params:
+		params.BANDAGE_PATH = config['BANDAGE_PATH']
+	if 'ART_PATH' in config_params:
+		params.ART_PATH = config['ART_PATH']
+	if 'SPADES_PATH' in config_params:
+		params.SPADES_PATH = config['SPADES_PATH']
+	if 'PROKKA_COMMAND_PREFIX' in config_params:
+		params.PROKKA_COMMAND_PREFIX = config['PROKKA_COMMAND_PREFIX']
+	if 'amr_db' in config_params and config['amr_db']!='':
+		params.amr_db = config['amr_db']
+	if 'seq_evaluation' in config_params:
+		params.seq_evaluation = config['seq_evaluation']
+	if 'spades_error_correction' in config_params:
+		params.spades_error_correction = config['spades_error_correction']
+	if 'assembler_output_dir' in config_params:
+		params.assembler_output_dir = config['assembler_output_dir']
+	elif main_dir_changed:
+		params.assembler_output_dir = params.assembler_output_dir.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
+	if 'max_kmer_size' in config_params:
+		params.max_kmer_size = config['max_kmer_size']
+	if 'graph_distance' in config_params:
+		params.graph_distance = config['graph_distance']
+	if 'path_node_threshold' in config_params:
+		params.path_node_threshold = config['path_node_threshold']
+	if 'path_seq_len_percent_threshold' in config_params:
+		params.path_seq_len_percent_threshold = config['path_seq_len_percent_threshold']
+	if 'use_RGI' in config_params:
+		params.use_RGI = config['use_RGI']
+	if 'RGI_include_loose' in config_params:
+		params.RGI_include_loose = config['RGI_include_loose']
+	if main_dir_changed:
+		params.main_dir = config['main_dir']
 
-	return parser
-
-def update_full_pipeline_params(params, args):
-	"""
-	"""
-	#updating params values
-	params.task = args.task
-	params.ref_genome_files = args.ref_genome_files
-	params.main_dir = args.main_dir
-	params.read_length = args.read_length
-	params.spades_thread_num = args.spades_thread_num
-	params.seq_length = args.seq_length
-	params.gfa_file = args.gfa_file
-	params.contig_file = args.contig_file
-	params.reads = args.reads
-	params.find_amr_genes = args.find_amr_genes
-	params.amr_identity_threshold = args.amr_identity_threshold
-	params.ref_genomes_available = args.ref_genomes_available
-	params.coverage_thr = args.coverage_thr
-	params.multi_processor = args.multi_processor
-	params.core_num = args.core_num
-	# params.ref_ng_annotations_file = args.ref_ng_annotations_file
-	# params.PROKKA_COMMAND_PREFIX = args.prokka_prefix
-	# params.amr_files = args.amr_files
-	# params.output_dir = args.output_dir
-	# params.assembler_output_dir = args.assembler_output_dir
-	# params.graph_distance = args.graph_distance
-	# params.ng_seq_files = args.ng_seq_files
-	# params.ng_path_info_files =  args.ng_path_info_files
-	# params.spades_error_correction = args.spades_error_correction
-	# params.use_RGI = args.use_RGI
-	# params.RGI_include_loose = args.RGI_include_loose
-	# params.metagenome_file =  args.metagenome_file
-	# params.path_node_threshold = args.path_node_threshold
-	# params.path_seq_len_percent_threshold = args.path_seq_len_percent_threshold
-	# params.number_of_insertions = args.number_of_insertions
-	# params.insertion_type = args.insertion_type
-	# params.insertion_locations = args.insertion_locations
-	# params.genome_amr_files = args.genome_amr_files
-	# params.artificial_amr_insertion = args.artificial_amr_insertion
 	return params
 
 if __name__=="__main__":
 	import params
 	text = 'This code is used to find the context of a given AMR gene'
 	parser = argparse.ArgumentParser(description=text)
-	parser = create_arguments(params, parser)
+	parser.add_argument('--config_file', '-C', type = str, default='',
+		help = 'the config file to set parameters for full_pipeline()')
 	args = parser.parse_args()
-	params = update_full_pipeline_params(params, args)
+    # Read config file into a dictionery
+	print("Reading the config file '"+args.contig_file+"' ...")
+	with open(args.config_file, 'r') as yamlfile:
+		data = yaml.load(yamlfile, Loader=yaml.FullLoader)
+	params = update_full_pipeline_params(params, data)
 	log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
 	initialize_logger(params.main_dir, log_name)
-	print_parameters(params, "full_pipeline")
+	validate_print_parameters(params, "full_pipeline")
 	#logging.info(str(params.__dict__))
 	#create the output directory; if it exists, delete it and create a new one
 	if not os.path.exists(params.output_dir):

@@ -44,24 +44,23 @@ class Assembler_name(enum.Enum):
     spacegraphcats = 5
 
 BANDAGE_PATH = 'Bandage'
-#BANDAGE_PATH = '/media/Data/tools/Bandage_Ubuntu_dynamic_v0_8_1/Bandage'
 ART_PATH = 'art_illumina'
 SPADES_PATH = 'spades.py'
-cwd = os.getcwd()
-PROKKA_COMMAND_PREFIX = 'docker run -v '+cwd+':/data staphb/prokka:latest '
-# PROKKA_COMMAND_PREFIX = 'docker run -v `pwd`:/data staphb/prokka:latest '
+# cwd = os.getcwd()
+# PROKKA_COMMAND_PREFIX = 'docker run -v '+cwd+':/data staphb/prokka:latest '
+PROKKA_COMMAND_PREFIX = ''
 
 amr_db = pkg_resources.resource_filename(__name__, 'data/CARD_AMR_seq.fasta')
 main_dir = 'test/'
-#main_dir = '/media/Data/PostDoc/Dalhousie/Work/Test2/Experiments/real_sample1/'
-output_dir = main_dir+'output_dir/'
+output_dir = os.path.join(main_dir , 'output_dir')
 
 multi_processor = True
 core_num = 4
+#-1 when no gene-coverage threshold is used
 coverage_thr = 30
 task = [0]
 
-amr_files = output_dir +'AMR_info/sequences/'
+amr_files = os.path.join(output_dir ,'AMR_info/sequences/')
 find_amr_genes = False
 amr_identity_threshold =  95
 
@@ -69,41 +68,34 @@ amr_identity_threshold =  95
 seq_evaluation = False
 
 ref_genomes_available = True
-ref_ng_annotations_file = output_dir + 'AMR_info/ref_neighborhood_annotations.csv'
-ref_genome_files = main_dir + 'metagenome_data/'
-#ref_genome_files = main_dir + 'H_S001__insert_180_gsa_anonymous.fasta'
+ref_ng_annotations_file = os.path.join(output_dir , 'AMR_info/ref_neighborhood_annotations.csv')
+ref_genome_files = os.path.join(main_dir , 'metagenome_data')
 
 #simulating reads
 read_length =  150
-metagenome_file = output_dir +'metagenome.fasta'
-#reads =[output_dir + 'sub50_trimmed_ERR1713331_1.fastq',\
-# 		output_dir + 'sub50_trimmed_ERR1713331_2.fastq']
-#reads = main_dir +'NW016_1.forward_trimmedmerged.fastq.gz'
-reads =[main_dir + 'NW016_1._R1_val_1_trim_galore.fq.gz',\
- 		main_dir + 'NW016_1._R2_val_2_trim_galore.fq.gz']
+metagenome_file = os.path.join(output_dir ,'metagenome.fasta')
+reads =[os.path.join(main_dir , 'NW016_1._R1_val_1_trim_galore.fq.gz'),\
+ 		os.path.join(main_dir, 'NW016_1._R2_val_2_trim_galore.fq.gz')]
 
 spades_thread_num = 16
 
 assembler = Assembler_name.metaspades
 #Setting for assembler
 if assembler == Assembler_name.metaspades:
-	assembler_output_dir = 'spade_output'
-	gfa_file = output_dir + assembler_output_dir + '/assembly_graph_with_scaffolds.gfa'
-	contig_file = output_dir + assembler_output_dir + '/contigs.fasta'
+	assembler_output_dir = os.path.join(main_dir , 'spade_output')
+	gfa_file = os.path.join(assembler_output_dir , 'assembly_graph_with_scaffolds.gfa')
+	contig_file = os.path.join(assembler_output_dir , 'contigs.fasta')
 	max_kmer_size = 55
 elif assembler == Assembler_name.megahit:
-	assembler_output_dir = 'megahit_output'
-	gfa_file = output_dir + assembler_output_dir + '/k59.gfa'
-	#gfa_file = output_dir + assembler_output_dir + '/k119.gfa'
-	#contig_file = output_dir + assembler_output_dir + '/final.contigs.fa'
-	contig_file = output_dir + assembler_output_dir + '/intermediate_contigs/k59.contigs.fa'
-	#max_kmer_size = 59
+	assembler_output_dir = os.path.join(main_dir , 'megahit_output')
+	gfa_file = os.path.join(assembler_output_dir , 'k59.gfa')
+	contig_file = os.path.join(assembler_output_dir , 'intermediate_contigs/k59.contigs.fa')
 	max_kmer_size = 119
 elif assembler == Assembler_name.bcalm:
-	assembler_output_dir = 'bcalm_output'
-	gfa_file = output_dir + assembler_output_dir + '/bcalm_graph_55.gfa'
+	assembler_output_dir = os.path.join(main_dir , 'bcalm_output')
+	gfa_file = os.path.join(assembler_output_dir , 'bcalm_graph_55.gfa')
 	#doesn't produce any contig file; so just sue the one from meta-pades for evaluation
-	contig_file = output_dir + 'spades_output/contigs.fasta'
+	contig_file = os.path.join(main_dir , 'spade_output/contigs.fasta')
 	max_kmer_size = 54
 elif assembler == Assembler_name.metacherchant:
 	max_kmer_size = 30
@@ -125,17 +117,5 @@ path_seq_len_percent_threshold = 90
 use_RGI =  True
 RGI_include_loose = False
 
-ng_seq_files = output_dir + 'sequences_info/sequences_info_'+str(seq_length)+'/sequences/'
-ng_path_info_files = output_dir + 'sequences_info/sequences_info_'+str(seq_length)+'/paths_info/'
-
-
-#insertion of AMR gene in ref_genome
-artificial_amr_insertion = False
-inserted_amr_file = ''
-number_of_insertions = [2, 1]
-number_of_copies = [[3, 1],[1]]
-insertion_type = Insertion_type.random
-insertion_locations = []
-
-genome_amr_files = [output_dir + "SE_FDAARGOS_768_TRU-1_37589.fasta",
-                    output_dir + "enter_zy2_TRU1_19098.fasta"]
+ng_seq_files = os.path.join(output_dir , 'sequences_info/sequences_info_'+str(seq_length)+'/sequences/')
+ng_path_info_files = os.path.join(output_dir , 'sequences_info/sequences_info_'+str(seq_length)+'/paths_info/')

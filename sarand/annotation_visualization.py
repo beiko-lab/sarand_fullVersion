@@ -119,8 +119,8 @@ def visualize_annotation(input_csv_file, output, title=''):
 				strand=+1, color='#ffd700', label = gene_info['name']+gene_info['coverage']))
 		record = GraphicRecord(sequence_length=seq_length_list[counter], features=features)
 		ax, _  = record.plot(figure_width=10)
-		ax.figure.savefig(temp_dir+'temp'+str(counter)+'.jpg', bbox_inches='tight')
-		img = Image.open(temp_dir+'temp'+str(counter)+'.jpg')
+		ax.figure.savefig(os.path.join(temp_dir,'temp'+str(counter)+'.jpg'), bbox_inches='tight')
+		img = Image.open(os.path.join(temp_dir,'temp'+str(counter)+'.jpg'))
 		image_list.append(img)
 	show_images(image_list=image_list, main_title = title, output = output, title_list = title_list)
 	#delete temporary directory

@@ -82,24 +82,25 @@ def find_corresponding_amr_file(amr_name, amr_files):
 
 def main():
     logging.info("Startting the pipeline for testing spacegraphcats ...")
-    working_dir = params.output_dir+WORK_DIR
+    working_dir = os.path.join(params.output_dir, WORK_DIR)
     #converting graph to gfa format
     logging.info('converting graph to gfa format ... ')
 	convert_command = subprocess.run(["python","/media/Data/tools/bcalm_convertToGFA.py",
-                    working_dir+"/bcalm.unitigs.fa", working_dir+'/'+params.gfa_file,
+                            os.path.join(working_dir, "bcalm.unitigs.fa"),
+                            os.path.join(working_dir, params.gfa_file),
 							"31"], stdout=subprocess.PIPE, check= True)
 	logging.info(convert_command.stdout.decode('utf-8'))
     # command = 'python /media/Data/tools/bcalm_convertToGFA.py '+\
     # working_dir+'/bcalm.unitigs.fa '+working_dir+'/'+params.gfa_file+' 31'
     # os.system(command)
     logging.info('Loading graph from gfa file ...')
-    bcalm_graph = gfapy.Gfa.from_file(working_dir+'/'+params.gfa_file)
+    bcalm_graph = gfapy.Gfa.from_file(os.path.join(working_dir, params.gfa_file))
     #find the mapping
     logging.info('Load mapping ...')
-    map_file = working_dir+'/mapping.fa'
+    map_file = os.path.join(working_dir, 'mapping.fa')
     map_list = find_mapping(map_file)
     # extract the list of files
-    searching_dir = params.output_dir + SEARCH_DIR
+    searching_dir = os.path.join(params.output_dir , SEARCH_DIR)
     id_files = [os.path.join(searching_dir, f) for f in os.listdir(searching_dir) \
             if os.path.isfile(os.path.join(searching_dir, f)) and f.endswith('cdbg_ids.txt.gz')]
     # if compressed_files:
@@ -124,36 +125,41 @@ def main():
     if params.ref_genomes_available:
         df = pd.read_csv(params.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
         amr_groups = df.groupby('target_amr')
-    sequence_dir = params.output_dir+'sequences/'
+    sequence_dir = os.path.join(params.output_dir, 'sequences')
     if not os.path.exists(sequence_dir):
         os.makedirs(sequence_dir)
-    evaluation_dir = params.output_dir+EVAL_DIR+'/'+EVAL_DIR+'_'+str(params.seq_length)+'/'
+    evaluation_dir = os.path.join(params.output_dir, EVAL_DIR, EVAL_DIR+'_'+str(params.seq_length))
     if not os.path.exists(evaluation_dir):
         os.makedirs(evaluation_dir)
-    summary_file = evaluation_dir+'summaryMetrics_up_down_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
+    summary_file = os.path.join(evaluation_dir, 'summaryMetrics_up_down_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv')
     with open(summary_file,'a') as fd:
         writer = csv.writer(fd)
         writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision', 'not_found'])
-    graph_dir = params.output_dir+'ng_graphs/'
+    graph_dir = os.path.join(params.output_dir, 'ng_graphs')
     if not os.path.exists(graph_dir):
         os.makedirs(graph_dir)
     average_precision = 0
     average_sensitivity = 0
-    no_align_file = open(params.output_dir+'no_align_found.txt', 'w')
+    no_align_file = open(os.path.join(params.output_dir, 'no_align_found.txt'), 'w')
     #Going over the list of AMRs
     for r_amr_name, node_list in graph_node_lists.items():
         logging.info('Processing '+r_amr_name+' ...')
         #extract graph from the nodes
         ng_graph = extract_neighborhood_graph(node_list, bcalm_graph)
-        gfa_file = graph_dir+r_amr_name+'.gfa'
+        gfa_file = os.path.join(graph_dir, r_amr_name+'.gfa')
         ng_graph.to_file(gfa_file)
         amr_file = find_corresponding_amr_file(r_amr_name, amr_files)
         amr_seq, amr_name = retrieve_AMR(amr_file)
         #sequence extraction
         logging.info('Neighborhood Extraction ...')
+        # seq_file, path_info_file = neighborhood_sequence_extraction(gfa_file,
+        #         params.seq_length, sequence_dir, params.BANDAGE_PATH,
+        #         params.amr_identity_threshold, SEQ_NAME_PREFIX+'_'+r_amr_name,
+        #         params.path_node_threshold , params.path_seq_len_percent_threshod,
+        #         params.max_kmer_size, params.assembler, (amr_file,''))
         seq_file, path_info_file = neighborhood_sequence_extraction(gfa_file,
                 params.seq_length, sequence_dir, params.BANDAGE_PATH,
-                params.amr_identity_threshold, SEQ_NAME_PREFIX+'_'+r_amr_name,
+                params.amr_identity_threshold, SEQ_NAME_PREFIX,
                 params.path_node_threshold , params.path_seq_len_percent_threshod,
                 params.max_kmer_size, params.assembler, (amr_file,''))
         if seq_file=='':

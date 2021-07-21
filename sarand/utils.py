@@ -65,7 +65,7 @@ def create_fasta_file(seq, output_dir, comment = "> sequence:\n", file_name = 't
 	Return:
 		the address of the fasta file
 	"""
-	myfile_name = output_dir+file_name+'.fasta'
+	myfile_name = os.path.join(output_dir, file_name+'.fasta')
 	if os.path.isfile(myfile_name):
 		os.remove(myfile_name)
 	myfile = open(myfile_name, 'w')
@@ -150,33 +150,97 @@ def initialize_logger(output_dir, file_name = 'logfile.log'):
 	console_handler.setFormatter(log_formatter)
 	root_logger.addHandler(console_handler)
 
-def print_parameters(params, func):
+def validate_print_parameters(params, func):
 	"""
 	"""
-	logging.info("multi_processor: "+str(params.multi_processor)+", core_num: "+str(params.core_num))
-	logging.info("amr_identity_threshold: "+str(params.amr_identity_threshold))
-	logging.info("neighborhood_seq_length: "+str(params.seq_length))
-	logging.info("use_RGI: "+str(params.use_RGI))
-	logging.info("RGI_include_loose: "+str(params.RGI_include_loose))
+	if not os.path.isdir(params.main_dir):
+		logging.error("main_dir does not exist: "+params.main_dir)
+		sys.exit()
 	logging.info("main_dir: "+params.main_dir)
+	if not os.path.isfile(params.amr_db):
+		logging.error("Invalid amr_db path (the fasta file containing all AMR sequences): "+params.amr_db)
+		sys.exit()
+	if not isinstance(params.multi_processor, bool):
+		logging.error('multi_processor variable should be set to a bool value: '+params.multi_processor)
+		sys.exit()
+	if not isinstance(params.core_num, int):
+		logging.error('core_num should have an integer value: '+params.core_num)
+		sys.exit()
+	logging.info("multi_processor: "+str(params.multi_processor)+", core_num: "+str(params.core_num))
+	if not isinstance(params.amr_identity_threshold, int) or params.amr_identity_threshold < 0 or\
+		params.amr_identity_threshold > 100:
+		logging.error('amr_identity_threshold should have an integer value between 0 and 100: '+ params.amr_identity_threshold)
+		sys.exit()
+	logging.info("amr_identity_threshold: "+str(params.amr_identity_threshold))
+	if not isinstance(params.seq_length, int):
+		logging.error('seq_length should have an integer value: '+params.seq_length)
+		sys.exit()
+	logging.info("(neighborhood)seq_length: "+str(params.seq_length))
+	if not isinstance(params.use_RGI, bool):
+		logging.error('use_RGI should have a boolean value: '+ params.use_RGI)
+		sys.exit()
+	logging.info("use_RGI: "+str(params.use_RGI))
+	if not isinstance(params.RGI_include_loose, bool):
+		logging.error('RGI_include_loose should have a boolean value: '+ params.RGI_include_loose)
+		sys.exit()
+	logging.info("RGI_include_loose: "+str(params.RGI_include_loose))
+	if not isinstance(params.ref_genomes_available, bool):
+		logging.error('ref_genomes_available should have a boolean value: '+ params.ref_genomes_available)
+		sys.exit()
 	logging.info("ref_genomes_available: "+str(params.ref_genomes_available))
 	if func=="full_pipeline":
 		task_num_list = validate_task_values(params.task)
 		task_list = [Pipeline_tasks(task).name for task in task_num_list]
 		logging.info("tasks: "+str(task_list))
+		if not isinstance(params.coverage_thr, int) or params.coverage_thr<-1:
+			logging.error('coverage_thr should have an integer value >= -1'+ params.read_length)
+			sys.exit()
 		logging.info("coverage_thr: "+str(params.coverage_thr))
+		if not os.path.exists(params.ref_genome_files) and\
+			os.path.exists(os.path.join(params.main_dir, params.ref_genome_files)):
+			params.ref_genome_files = os.path.join(params.main_dir, params.ref_genome_files)
+		logging.info("ref_genome_file(s): "+params.ref_genome_files)
 		if Pipeline_tasks.read_simulation.value in task_num_list:
+			if not isinstance(params.read_length, int) or (params.read_length!=150 and params.read_length!=250):
+				logging.error('read_length should be equal to either 150 or 250: '+ params.read_length)
+				sys.exit()
 			logging.info("read_length: "+str(params.read_length))
 		elif Pipeline_tasks.assembly.value in task_num_list:
+			for read in params.reads:
+				if not os.path.exists(read) and\
+					os.path.exists(os.path.join(params.main_dir, read)):
+					read = os.path.join(params.main_dir, read)
 			logging.info("reads: "+params.reads)
 		if Pipeline_tasks.assembly.value in task_num_list:
+			#create the absolute path for assembler_output_dir
+			if not params.main_dir in params.assembler_output_dir:
+				params.assembler_output_dir = os.path.join(params.main_dir, params.assembler_output_dir)
+			logging.info('assembler_output_dir: '+ params.assembler_output_dir)
+			if not isinstance(params.spades_thread_num, int) or params.spades_thread_num<=0:
+				logging.error('spades_thread_num should have a positive integer value: '+ params.spades_thread_num)
+				sys.exit()
 			logging.info("spades_thread_num: "+str(params.spades_thread_num))
 			logging.info("assembler: "+params.assembler.name)
+			if not isinstance(params.spades_error_correction, bool):
+				logging.error('spades_error_correction should have a boolean value: '+ params.spades_error_correction)
+				sys.exit()
 			logging.info("spades_error_correction: "+str(params.spades_error_correction))
+		else:
+			if not os.path.exists(params.gfa_file) and\
+				os.path.exists(os.path.join(params.main_dir, params.gfa_file)):
+					params.gfa_file = os.path.join(params.main_dir, params.gfa_file)
+			logging.info("gfa_file: "+params.gfa_file)
 	if func=="find_contig_amrs":
+		if not os.path.exists(params.contig_file) and\
+			os.path.exists(os.path.join(params.main_dir, params.contig_file)):
+			params.contig_file = os.path.join(params.main_dir, params.contig_file)
 		logging.info("contig_file: "+params.contig_file)
 	if func=="find_ref_amrs":
+		if not os.path.exists(params.ref_genome_files) and\
+			os.path.exists(os.path.join(params.main_dir, params.ref_genome_files)):
+			params.ref_genome_files = os.path.join(params.main_dir, params.ref_genome_files)
 		logging.info("ref_genome_file(s): "+params.ref_genome_files)
+	return params
 
 def check_reads(v):
 	if isinstance(v, str):
@@ -457,7 +521,7 @@ def run_RGI(input_file, output_dir, seq_description, include_loose = False, dele
 	Return:
 		the list of extracted annotation information for the sequence
 	"""
-	rgi_dir = output_dir +"rgi_dir"
+	rgi_dir = os.path.join(output_dir , "rgi_dir")
 	if not os.path.exists(rgi_dir):
 		try:
 			os.makedirs(rgi_dir)
@@ -466,7 +530,7 @@ def run_RGI(input_file, output_dir, seq_description, include_loose = False, dele
 				raise
 			pass
 
-	output_file_name = rgi_dir +"/rgi_output_"+seq_description+"_"+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
+	output_file_name = os.path.join(rgi_dir ,"rgi_output_"+seq_description+"_"+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
 	#remove any potential * from the sequence
 	delete_a_string_from_file('*', input_file)
 	arg_list = ["rgi","main", "--input_sequence", input_file, "--output_file",
@@ -537,16 +601,17 @@ def annotate_sequence(seq, seq_description, output_dir, prokka_prefix, use_RGI =
 	prokka_command = subprocess.run(arg_list, stdout=subprocess.PIPE, check= True)
 	logging.info(prokka_command.stdout.decode('utf-8'))
 	#move prokka directory to the right address
-	shutil.move(prokka_dir, output_dir+prokka_dir)
-	prokka_dir = output_dir + prokka_dir
+	shutil.move(prokka_dir, os.path.join(output_dir, prokka_dir))
+	prokka_dir = os.path.join(output_dir , prokka_dir)
 	RGI_output_list = None
 	if use_RGI:
-		RGI_output_list = run_RGI(prokka_dir+'/'+prefix_name+'.faa', output_dir, seq_description,
-								RGI_include_loose, delete_prokka_dir)
+		RGI_output_list = run_RGI(os.path.join(prokka_dir, prefix_name+'.faa'),
+									output_dir, seq_description,
+									RGI_include_loose, delete_prokka_dir)
 
 	#Go over Prokka's output files and extract required information
 	seq_info = []
-	with open(prokka_dir+'/'+prefix_name+'.tsv') as tsvfile:
+	with open(os.path.join(prokka_dir, prefix_name+'.tsv'), 'r') as tsvfile:
 		reader = csv.reader(tsvfile, delimiter='\t')
 		#skip the header
 		next(reader)
@@ -562,7 +627,7 @@ def annotate_sequence(seq, seq_description, output_dir, prokka_prefix, use_RGI =
 						'seq_name':None, 'target_amr': None}
 			seq_info.append(gene_info)
 	counter = 0
-	with open(prokka_dir+'/'+prefix_name+'.tbl', 'r') as read_obj:
+	with open(os.path.join(prokka_dir, prefix_name+'.tbl'), 'r') as read_obj:
 		for line in read_obj:
 			if line[0].isdigit():
 				cells = line.split('\t')
@@ -664,17 +729,17 @@ def compare_two_sequences(subject, query, output_dir, threshold = 90, switch_all
 	if switch_allowed and len(subject)<len(query):
 		subject, query = query, subject
 	#write the query sequence into a fasta file
-	query_file_name = output_dir+'query.fasta'
+	query_file_name = os.path.join(output_dir, 'query.fasta')
 	with open(query_file_name, 'w') as query_file:
 		query_file.write('> query \n')
 		query_file.write(query)
 	#write the query sequence into a fasta file
-	subject_file_name = output_dir+'subject.fasta'
+	subject_file_name = os.path.join(output_dir, 'subject.fasta')
 	with open(subject_file_name, 'w') as subject_file:
 		subject_file.write('> subject \n')
 		subject_file.write(subject)
 	#run blast query for alignement
-	blast_file_name = output_dir+'blast'+blast_ext+'.csv'
+	blast_file_name = os.path.join(output_dir, 'blast'+blast_ext+'.csv')
 	blast_file = open(blast_file_name, "w")
 	blast_command = subprocess.run(["blastn", "-query", query_file_name, "-subject",
 						subject_file_name,"-task", "blastn-short", "-outfmt",

@@ -25,7 +25,7 @@ import subprocess
 from Bio import SeqIO
 
 OUTPUT_DIR = 'temp'
-result_file = OUTPUT_DIR+'/sequence_match_list'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
+result_file = os.path.join(OUTPUT_DIR,'sequence_match_list'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv')
 
 def write_results(result_file, query, contig_list):
 	"""
@@ -66,12 +66,12 @@ def find_sequence_match(query, contig_file, out_dir = OUTPUT_DIR, blast_ext = ''
 	# command = 'makeblastdb -in '+contig_file +' -parse_seqids -dbtype nucl'
 	# os.system(command)
 	#write the sequence into a fasta file
-	query_file = out_dir+'/query.fasta'
+	query_file = os.path.join(out_dir, 'query.fasta')
 	file = open(query_file, 'w')
 	file.write(query)
 	file.close()
 	#run blast query for alignement
-	blast_file_name = out_dir+'/blast'+blast_ext+'.csv'
+	blast_file_name = os.path.join(out_dir, 'blast'+blast_ext+'.csv')
 	blast_file = open(blast_file_name, "w")
 	blast_command = subprocess.run(["blastn", "-query", query_file, "-db", contig_file,
 						"-task", "blastn", "-outfmt", "10", "-max_target_seqs", "5",

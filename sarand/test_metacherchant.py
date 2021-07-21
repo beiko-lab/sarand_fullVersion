@@ -44,39 +44,45 @@ def find_corresponding_amr_file(amr_name, amr_files):
 def main():
     """
     """
-    amr_info_file = params.output_dir+'AMR_seqs.fasta'
+    amr_info_file = os.path.join(params.main_dir, 'AMR_seqs_full.fasta')
     amr_names, amr_seqs = extract_amr_info_from_file(amr_info_file)
     ref_amr_files = extract_files(params.amr_files, 'please provide the address of the AMR gene(s)')
     if params.ref_genomes_available:
         df = pd.read_csv(params.ref_ng_annotations_file, skipinitialspace=True,  keep_default_na=False)
         amr_groups = df.groupby('target_amr')
-    sequence_dir = params.output_dir+'sequences/'
+    sequence_dir = os.path.join(params.output_dir, 'sequences')
     if not os.path.exists(sequence_dir):
         os.makedirs(sequence_dir)
-    evaluation_dir = params.output_dir+EVAL_DIR+'/'+EVAL_DIR+'_'+str(params.seq_length)+'/'
+    evaluation_dir = os.path.join(params.output_dir, EVAL_DIR, EVAL_DIR+'_'+str(params.seq_length))
     if not os.path.exists(evaluation_dir):
         os.makedirs(evaluation_dir)
-    summary_file = evaluation_dir+'summaryMetrics_up_down_'+\
-        datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv'
+    summary_file = os.path.join(evaluation_dir, 'summaryMetrics_up_down_metacherchant_'+\
+        datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv')
     with open(summary_file,'a') as fd:
         writer = csv.writer(fd)
         writer.writerow(['AMR', 'Unique_TP#', 'FP#', 'Unique_True#', 'found#','sensitivity', 'precision', 'not_found'])
 
     average_precision = 0
     average_sensitivity = 0
-    no_align_file = open(params.output_dir+'no_align_found.txt', 'w')
-    for i, amr_name in enumerate(amr_names):
+    no_align_file = open(os.path.join(params.output_dir, 'no_align_found.txt'), 'w')
+    for amr_name in amr_names:
         logging.info('Processing '+amr_name+' ...')
         restricted_amr_name = restricted_amr_name_from_modified_name(amr_name)
+        amr_name1 = amr_name.replace(";",'SS')
+        restricted_amr_name1 = ''.join(e for e in amr_name1 if e.isalpha() or e.isnumeric() or e=='_' or\
+                                        e=='-' or e=='(' or e==')')
         amr_file = find_corresponding_amr_file(restricted_amr_name, ref_amr_files)
         #sequence extraction
         logging.info('Neighborhood Extraction ...')
-        gfa_file = params.output_dir+'output/'+str(i+1)+'/graph.gfa'
+        #gfa_file = params.output_dir+'output/'+str(i+1)+'/graph.gfa'
+        gfa_file = os.path.join(params.main_dir, 'output', restricted_amr_name1, 'graph.gfa')
+        command = "sed -e 's/\tCL:z:GREEN//g' -i "+gfa_file
+        os.system(command)
         logging.info('gfa_file: '+gfa_file)
         seq_file, path_info_file = neighborhood_sequence_extraction(gfa_file,
                 params.seq_length, sequence_dir, params.BANDAGE_PATH,
-                params.amr_identity_threshold, SEQ_NAME_PREFIX+str(i+1),
-                params.path_node_threshold , params.path_seq_len_percent_threshod,
+                params.amr_identity_threshold, SEQ_NAME_PREFIX,
+                params.path_node_threshold , params.path_seq_len_percent_threshold,
                 params.max_kmer_size, params.assembler, (amr_file,''))
         if seq_file=='':
             no_align_file.write(amr_name+'\n')
@@ -95,7 +101,7 @@ def main():
             all_seq_info_list, annotation_file =neighborhood_annotation(amr_name, seq_file,
                     path_info_file, params.seq_length, [], [], params.output_dir,
                     params.PROKKA_COMMAND_PREFIX,params.use_RGI,
-                    params.RGI_include_loose, '_'+str(i+1)+restricted_amr_name,
+                    params.RGI_include_loose, '_'+restricted_amr_name,
                     False)
             #Evaluation
             logging.info('Evaluation ...')
