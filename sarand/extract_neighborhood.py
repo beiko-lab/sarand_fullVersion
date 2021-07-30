@@ -330,7 +330,7 @@ def write_sequences_to_file(sequence_list, path_list, file_name):
 	"""
 	file = open(file_name, 'a+')
 	for seq, path in zip(sequence_list, path_list):
-		myLine = "Path-> " + ", ".join(path) + ":"
+		myLine = "> " + ", ".join(path) + ":"
 		file.write(myLine+"\n")
 		file.write(seq+"\n")
 	file.close()

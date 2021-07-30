@@ -8,12 +8,13 @@ To run:
 	python read_files_concatenate.py --dir <the directory containing files to be concatenated>
     --out <the output file>
 """
+import argparse
 from utils import concatenate_files, extract_files
 
 #files_dir = "/media/Data/PostDoc/Dalhousie/Work/Test2/Experiments/CAMI_H_1/AMR_info/sequences"
 #cat_file = "AMR_seqs.fasta"
 
-def read_concatenate_files(files_dir, myfiles):
+def read_concatenate_files(files_dir, cat_file):
     myfiles = extract_files(files_dir,'')
     concatenate_files(myfiles, cat_file)
 
@@ -34,4 +35,4 @@ if __name__=="__main__":
 		logging.error('please enter the address of the output file')
 		import pdb; pdb.set_trace()
 		sys.exit()
-    read_concatenate_files(args.dir, args.out)
+	read_concatenate_files(args.dir, args.out)

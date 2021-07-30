@@ -3097,7 +3097,7 @@ def extract_amr_info(params, graph_file, ref_amr_files):
 							params.amr_identity_threshold)
 	#if ref genomes are not available but the list of AMRs has already been found in the graph and is available
 	else:
-		align_dir = params.os.path.join(output_dir, AMR_DIR_NAME, AMR_ALIGN_DIR)
+		align_dir = params.os.path.join(params.output_dir, AMR_DIR_NAME, AMR_ALIGN_DIR)
 		overlap_file_name = os.path.join(params.output_dir, AMR_DIR_NAME, AMR_OVERLAP_FILE)
 		#We assume that only unique AMRs (heads) are stored
 		unique_amr_files = extract_files(params.amr_files, 'please provide the address of the AMR gene(s)')
