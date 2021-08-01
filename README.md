@@ -112,61 +112,7 @@ Here is the list of important directories and files that can be seen there and a
 
 ## Exploring the code
 ### Optional parameters to set
-The list of all parameters that can be set in this tool have been provided in code/params.py, and includes the following parameters that can be set via command line as well:  
-- -h, --help   
-> show help message and exit
-- --task TASK or [FIRST_TASK, LAST_TASK]  
-> which task would you like to do? For the entire pipeline choose 0; otherwise either provide a number representing one of the following tasks or two numbers to denote the start and end tasks (and of course all tasks in the middle will be run too). Here is the list: metagenome_creation = 1 read_simulation = 2 assembly = 3 graph_neighborhood = 4 sequence_neighborhood = 5 neighborhood_annotation = 6, neighborhood_evaluation = 7
-- --amr_file AMR_FILE, -A AMR_FILE  
-> the path of the files containing the AMR genes sequence
-- --ref_genome_files REF_GENOME_FILES [REF_GENOME_FILES ...]  
-> the address of reference genomes; it can be a file, a list of files or a directory
-- --main_dir MAIN_DIR, -M MAIN_DIR  
-> the main dir to store all results
-- --read_length READ_LENGTH  
-> the length of simulated reads can be either 150 or 250  
-- --spades_thread_num SPADES_THREAD_NUM  
-> the number of threads used for MetaSPAdes  
-- --spades_output_dir SPADES_OUTPUT_DIR  
-> the output dir to store MetaSPAdes results  
-- --graph_distance GRAPH_DISTANCE, -D GRAPH_DISTANCE  
-> the maximum distance of neighborhood nodes to be extracted from the AMR gene  
-- --seq_length SEQ_LENGTH, -L SEQ_LENGTH  
-> the length of AMR gene's neighbourhood to be extracted  
-- --ng_seq_files NEIGHBORHOOD_SEQ_FILE  
-> the address of the files (directory) containing all extracted neighborhood sequences in assembly graph  
-- --ng_path_info_files NG_PATH_INFO_FILES
-> the address of the files (directory) containing all path information for extracted neighborhood sequences in assembly graph')
-- --gfa_file GFA_FILE  
-> the address of the file for assembly graph  
-- --contig_file CONTIG_FILE  
-> the address of the file containing contigs after assembly  
-- --genome_amr_files GENOME_AMR_FILES [GENOME_AMR_FILES ...]  
-> the address of the files containing genome after AMR insertion  
-- --reads [READs]         
-> the address of the files containing paired-end reads
-- --spades_error_correction SPADES_ERROR_CORRECTION  
-> Whether to turn on or off error correction in MetaSPAdes  
-- --use_RGI USE_RGI     
-> Whether to contribute RGI annotation in Prokka result  
-- --RGI_include_loose RGI_INCLUDE_LOOSE  
-> Whether to include loose cases in RGI result  
-- --find_amr_genes {BOOLEAN>
-> Whether to assume the AMR genes (in metagenome) are known or to look for them in assembly graph
-- --amr_identity_threshold AMR_IDENTITY_THRESHOLD
-> the threshold used for amr alignment: a hit is returned if identity/coverage >= threshold
-- --path_node_threshold PATH_NODE_THRESHOLD
-> the threshold used for recursive pre_path and post_path search as long as the length of the path is less that this threshold
-- --path_seq_len_percent_threshold PATH_SEQ_LEN_PERCENT_THR
-> the threshold used for recursive pre_seq and post_seq until we have this percentage of the required length after which we just extract from the longest neighbor
-- --ref_genomes_available {BOOLEAN>
-> Whether we have access to reference genome(s)
-- --multi_processor {BOOLEAN>
-> Whether to use multi processors for parallel programming
-- --core_num CORE_NUM
-> the number of cores used in case of parallel programming
-- --coverage_thr COVERAGE_THRESHOLD
-> coverage threshold to check if an annotated gene is truly AMR neighbor or just a false positive
+The list of all parameters that can be set in the modules of Sarand has been provided in the sample config files (sample_config_full_pipeline.yaml, sample_config_find_ref_amrs.yaml and sample_config_find_contig_amrs.yaml).
 
 ### Python files
 #### 1- full_pipeline.py
