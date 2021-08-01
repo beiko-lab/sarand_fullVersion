@@ -1,10 +1,10 @@
 # Documentation for Sarand
 
 
-This document provides an overview of how the proposed tool can be installed and used. It attempts to document all necessary details to set up the tool, and provides some run guides.
+This document provides an overview of how Sarand can be installed and used. It attempts to document all necessary details to set up the tool, and provides some run guides.
 
 ## Overview
-This tool can be used to extract the neighborhood of the target Antimicrobial Resistance (AMR) genes from the assembly graph.
+Sarand can be used to extract the neighborhood of the target Antimicrobial Resistance (AMR) genes from the assembly graph.
 It can also be used to simulate sequence reads from some reference genomes (through ART), run MetaSPAdes to assemble the simulated reads and then reconstruct the neighborhood of the AMR genes.
 
 ![sarand](sarand/docs/sarand.png)
@@ -12,7 +12,7 @@ It can also be used to simulate sequence reads from some reference genomes (thro
 
 ## Installation
 ### Step I: install the dependencies
-Our tool relies on several dependencies, including Python, Prokka, RGI, BLAST, Bandage, MetaSPAdes (in case the assembly graph has not already been generated) and ART (in case of simulating reads).
+Our tool relies on dependencies, including Python, Prokka, RGI, BLAST, Bandage, MetaSPAdes (in case the assembly graph has not already been generated) and ART (in case of simulating reads).
 The most straight forward way to install this tool's dependencies is using bioconda.
 #### Cloning the tool repository
 `git clone https://github.com/beiko-lab/sarand`
@@ -37,7 +37,7 @@ Links to repositories of the main tool dependencies can be found here:
 
 Note: In case, prokka can't be installed through bioconda, I suggest using the docker
 container [staphb/prokka](https://hub.docker.com/r/staphb/prokka) by the following command:
-`docker pull staphb/prokka:latest`. Please note that PROKKA_COMMAND_PREFIX variable in params.py need to be updated with an appropriate value which is probably an empty string unless prokka is run through docker.  
+`docker pull staphb/prokka:latest`. Please note that PROKKA_COMMAND_PREFIX variable in your config (YAML) file need to be updated with an appropriate value which is probably an empty string (the default) unless Prokka is run through docker.  
 
 #### Installing python requirements
 Note: Make sure that you are in the root directory of this tool (sarand).
@@ -46,30 +46,43 @@ Note: Make sure that you are in the root directory of this tool (sarand).
     pip install .
 
 ### Step II: Testing
-#### Updating params.py
-Make sure to update the following parameter in code/params.py.
-- PROKKA_COMMAND_PREFIX (it probably should either be an empty string or the command from docker if you installed prokka via docker)
+#### Available modules
+Three modules are available under Sarand that can be run separately:  
+- full_pipeline: It provides the complete pipeline to extract AMR neighborhood from the assembly graph and annotate it.
+- find_ref_amrs: This module can be used to find all AMRs available in the reference genomes (fasta files) and extract their neighborhood sequences and annotate them. It is used as the ground truth when reference genomes are available.
+- find_contig_amrs: This module is used to find the neighborhood of AMRs in a contig file, compare them with that of the reference genomes (if available) and calculate the sensitivity and precision.
+Each of these modules can be run by
 
-Note: you might also need to update the following parameters in code/params.py to provide the path to Bandage, ART and SPAdes, in case they have not been installed via conda.
+      sarand <module_name> -C <config_file>
+
+#### Setting config file
+To run Sarand, you need to have a config file as the input. Sample config files for all three modules with the list of all parameters that can be set have been provided as sample_config_full_pipeline.yaml, sample_config_find_ref_amrs.yaml and sample_config_find_contig_amrs.yaml.
+
+Please note that the config file is a mandatory parameter. However, you don't need to set all the parameters available in the config file (probably the main one you want to set is main_dir).
+
+Make sure to update the following parameter in your config file:
+- main_dir: the address of the main directory to read inputs and store results.
+- PROKKA_COMMAND_PREFIX: Only ih you use docker to run Prokka, set this parameter with the command from docker (e.g., `docker pull staphb/prokka:latest`))
+
+Note: you might also need to update the following parameters in your config file to provide the path to Bandage, ART and SPAdes, in case they have not been installed via conda.
 - BANDAGE_PATH (the path to access bandage executable file)
 - ART_PATH (the path to access art_illumina directory)
 - SPADES_PATH (the path to spades.py)
 
+Note: You don't need to install and set the parameters for ART and SPAdes if the assembly graph is provided as an input.
 
 #### Running the test code
 To run the code, make sure you are in the created conda environment.
 To activate it, run:
 
-    conda activate sarand`
+    conda activate sarand
 
 and then run the code by:
 
-    sarand full_pipeline`
-
-Note: You don't need to install and set the parameters for ART and SPAdes if the assembly graph is provided as an input.
+    sarand full_pipeline
 
 #### Expected results
-All results will be available in test directory.
+All results will be available in test directory (mostly in output_dir).
 Here is the list of important directories and files that can be seen there and a short description of their content.
 - metagenome.fasta: a file containing all ref genomes.
 - metagenome_1.fq and metagenome_2.fq: reads simulated by ART from metagenome.fasta

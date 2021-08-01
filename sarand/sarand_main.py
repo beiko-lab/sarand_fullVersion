@@ -115,7 +115,7 @@ def main():
     contig_parser = subparser.add_parser('find_contig_amrs', description="To find the neighborhood "
                                             "of AMRs in a contig file, compare them with "
     			                            "that of the ref genomes and calculate the "
-                                            "sentivity and precision",
+                                            "sensitivity and precision",
                                        usage="sarand find_contig_amrs <options>",
                                        help='')
     #contig_parser = create_contig_arguments(params, contig_parser)
