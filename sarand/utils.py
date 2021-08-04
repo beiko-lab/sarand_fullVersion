@@ -150,7 +150,7 @@ def initialize_logger(output_dir, file_name = 'logfile.log'):
 	console_handler.setFormatter(log_formatter)
 	root_logger.addHandler(console_handler)
 
-def validate_print_parameters(params, func):
+def validate_print_parameters_tools(params, func):
 	"""
 	"""
 	if not os.path.isdir(params.main_dir):
@@ -188,6 +188,18 @@ def validate_print_parameters(params, func):
 		logging.error('ref_genomes_available should have a boolean value: '+ params.ref_genomes_available)
 		sys.exit()
 	logging.info("ref_genomes_available: "+str(params.ref_genomes_available))
+	#Validate prokka
+	logging.info("Looking for Prokka ...")
+	arg_list = ["prokka", "-v"]
+	if params.PROKKA_COMMAND_PREFIX!="":
+		pre_list = params.PROKKA_COMMAND_PREFIX.strip().split(" ")
+		arg_list = pre_list + arg_list
+	try:
+		output = subprocess.check_output(arg_list)
+	except:
+		logging.error('Not able to run Prokka successfully!')
+		sys.exit()
+	logging.info("Prokka was found!")
 	if func=="full_pipeline":
 		task_num_list = validate_task_values(params.task)
 		task_list = [Pipeline_tasks(task).name for task in task_num_list]
@@ -200,11 +212,27 @@ def validate_print_parameters(params, func):
 			os.path.exists(os.path.join(params.main_dir, params.ref_genome_files)):
 			params.ref_genome_files = os.path.join(params.main_dir, params.ref_genome_files)
 		logging.info("ref_genome_file(s): "+params.ref_genome_files)
+		#validate bandage
+		logging.info("Looking for Bandage ...")
+		try:
+			output = subprocess.check_output([params.BANDAGE_PATH, '-v'])
+		except:
+			logging.error('Not able to run Bandage successfully!')
+			sys.exit()
+		logging.info("Bandage was found!")
 		if Pipeline_tasks.read_simulation.value in task_num_list:
 			if not isinstance(params.read_length, int) or (params.read_length!=150 and params.read_length!=250):
 				logging.error('read_length should be equal to either 150 or 250: '+ params.read_length)
 				sys.exit()
 			logging.info("read_length: "+str(params.read_length))
+			#validate ART
+			logging.info("Looking for ART ...")
+			try:
+				p = subprocess.Popen([params.ART_PATH], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			except:
+				logging.error('Not able to run ART successfully!')
+				sys.exit()
+			logging.info("ART was found!")
 		elif Pipeline_tasks.assembly.value in task_num_list:
 			for read in params.reads:
 				if not os.path.exists(read) and\
@@ -225,6 +253,14 @@ def validate_print_parameters(params, func):
 				logging.error('spades_error_correction should have a boolean value: '+ params.spades_error_correction)
 				sys.exit()
 			logging.info("spades_error_correction: "+str(params.spades_error_correction))
+			#validate MetaSpades
+			logging.info("Looking for MetaSPAdes ...")
+			try:
+				output = subprocess.check_output([params.SPADES_PATH, '-v'])
+			except:
+				logging.error('Not able to run metaSPAdes successfully!')
+				sys.exit()
+			logging.info("MetaSPAdes was found!")
 		else:
 			if not os.path.exists(params.gfa_file) and\
 				os.path.exists(os.path.join(params.main_dir, params.gfa_file)):

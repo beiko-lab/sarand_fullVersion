@@ -36,7 +36,7 @@ from gfapy.sequence import rc
 from sarand.utils import create_fasta_file, annotate_sequence, split_up_down_info,\
             similar_seq_annotation_already_exist, restricted_amr_name_from_modified_name,\
             amr_name_from_comment, initialize_logger, extract_files, concatenate_files,\
-			str2bool, validate_print_parameters
+			str2bool, validate_print_parameters_tools
 
 AMR_DIR_NAME = 'AMR_info'
 AMR_SEQ_DIR = 'sequences'
@@ -317,7 +317,7 @@ def update_ref_params(params, config):
 	if 'ref_genome_files' in config_params:
 		params.ref_genome_files = config['ref_genome_files']
 	elif main_dir_changed:
-		params.ref_genome_files = params.ref_genome_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))		
+		params.ref_genome_files = params.ref_genome_files.replace(params.main_dir.rstrip(' /'), config['main_dir'].rstrip(' /'))
 	if 'amr_db' in config_params and config['amr_db']!='':
 		params.amr_db = config['amr_db']
 	if 'amr_identity_threshold' in config_params:
@@ -347,7 +347,7 @@ if __name__=="__main__":
 	params = update_ref_params(params, data)
 	log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
 	initialize_logger(params.main_dir, log_name)
-	validate_print_parameters(params, "find_ref_amrs")
+	validate_print_parameters_tools(params, "find_ref_amrs")
 	#create the output directory; if it exists, delete it and create a new one
 	if not os.path.exists(params.output_dir):
 		os.makedirs(params.output_dir)

@@ -62,7 +62,7 @@ from sarand.utils import initialize_logger, check_reads, str2bool, print_params,
 			read_info_from_overlap_ref_files, extract_unique_align_files,\
 			read_path_info_from_align_file, concatenate_files, read_path_info_from_align_file_with_multiple_amrs,\
 			extract_path_info_for_amrs, compare_two_sequences, split_up_down_seq,\
-			delete_lines_started_with, validate_task_values, validate_print_parameters
+			delete_lines_started_with, validate_task_values, validate_print_parameters_tools
 from sarand.find_amrs_in_sample import find_annotate_amrs_in_ref
 
 ASSEMBLY_FILE = 'assembly_graph_with_scaffolds.gfa'
@@ -3349,7 +3349,7 @@ if __name__=="__main__":
 	params = update_full_pipeline_params(params, data)
 	log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
 	initialize_logger(params.main_dir, log_name)
-	validate_print_parameters(params, "full_pipeline")
+	validate_print_parameters_tools(params, "full_pipeline")
 	#logging.info(str(params.__dict__))
 	#create the output directory; if it exists, delete it and create a new one
 	if not os.path.exists(params.output_dir):

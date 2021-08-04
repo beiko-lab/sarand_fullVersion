@@ -10,7 +10,7 @@ import yaml
 from sarand import params, full_pipeline, utils, find_amrs_in_sample, amr_neighborhood_in_contigs
 from sarand.__init__ import __version__
 from sarand.full_pipeline import update_full_pipeline_params, full_pipeline_main
-from sarand.utils import initialize_logger, validate_print_parameters
+from sarand.utils import initialize_logger, validate_print_parameters_tools
 from sarand.find_amrs_in_sample import find_ref_amrs_main, update_ref_params
 from sarand.amr_neighborhood_in_contigs import find_contig_amrs_main, update_contig_params
 
@@ -36,7 +36,7 @@ def full_pipeline_init(args, params):
     #         logging.error("Error: %s - %s." % (e.filename, e.strerror))
     #     os.makedirs(args.output_dir)
     logging.info('Running full_pipeline ...')
-    params = validate_print_parameters(params, "full_pipeline")
+    params = validate_print_parameters_tools(params, "full_pipeline")
     full_pipeline_main(params)
 
 def find_ref_amrs_init(args, params):
@@ -60,7 +60,7 @@ def find_ref_amrs_init(args, params):
     #         logging.error("Error: %s - %s." % (e.filename, e.strerror))
     #     os.makedirs(args.output_dir)
     logging.info("Running find_amrs_in_sample ...")
-    params = validate_print_parameters(params, "find_ref_amrs")
+    params = validate_print_parameters_tools(params, "find_ref_amrs")
     find_ref_amrs_main(params)
 
 def find_contig_amrs_init(args, params):
@@ -76,7 +76,7 @@ def find_contig_amrs_init(args, params):
     if not os.path.exists(params.output_dir):
         os.makedirs(params.output_dir)
     logging.info("Running amr_neighborhood_in_contigs ...")
-    params = validate_print_parameters(params, "find_contig_amrs")
+    params = validate_print_parameters_tools(params, "find_contig_amrs")
     find_contig_amrs_main(params)
 
 def main():

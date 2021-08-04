@@ -38,7 +38,7 @@ from sarand.utils import extract_files, retrieve_AMR, read_ref_annotations_from_
 		extract_up_down_from_csv_file, seqs_annotation_are_identical,\
 		similar_seq_annotation_already_exist, split_up_down_info, annotate_sequence,\
 		retreive_original_amr_name, extract_name_from_file_name, initialize_logger,\
-		restricted_amr_name_from_modified_name, str2bool, validate_print_parameters
+		restricted_amr_name_from_modified_name, str2bool, validate_print_parameters_tools
 from sarand.extract_neighborhood import extract_amr_neighborhood_in_ref_genome
 from sarand.find_amrs_in_sample import find_all_amrs_and_neighborhood
 
@@ -389,5 +389,5 @@ if __name__=="__main__":
 	params = update_contig_params(params, data)
 	log_name = 'logger_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.log'
 	initialize_logger(args.main_dir, log_name)
-	validate_print_parameters(params, "find_contig_amrs")
+	validate_print_parameters_tools(params, "find_contig_amrs")
 	find_contig_amrs_main(args)
