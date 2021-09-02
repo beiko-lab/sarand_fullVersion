@@ -44,43 +44,43 @@ from sarand.find_amrs_in_sample import find_all_amrs_and_neighborhood
 
 NOT_FOUND_FILE = 'not_found_amrs_in_contigs.txt'
 
-def read_ref_neighborhood_annotation(annotation_file):
-	"""
-	"""
-	ref_up_info_list = []
-	ref_down_info_list = []
-	ref_amr_info_list = []
-	with open(annotation_file, 'r') as myfile:
-		myreader = DictReader(myfile)
-		old_seq = ''
-		seq_info =[]
-		for row in myreader:
-			if not row['seq_name'].startswith('extracted'):
-				gene_info = {'seq_name':row['seq_name'], 'seq_value':row['seq_value'],
-				 			'gene':row['gene'], 'length':row['length'],
-							'start_pos':int(row['start_pos']),'end_pos':int(row['end_pos']),
-							'target_amr':row['target_amr']}
-				cur_seq = row['seq_name']
-				if cur_seq!=old_seq:
-					if (seq_info):
-						amr_found, up_info, down_info, amr_info = extract_up_down_from_csv_file(seq_info)
-						if amr_found:
-							ref_amr_info_list.append(amr_info)
-							if up_info and not similar_seq_annotation_already_exist(up_info, ref_up_info_list):
-								ref_up_info_list.append(up_info)
-							if down_info and not similar_seq_annotation_already_exist(down_info, ref_down_info_list):
-								ref_down_info_list.append(down_info)
-					seq_info = []
-					old_seq = cur_seq
-				seq_info.append(gene_info)
-		amr_found, up_info, down_info, amr_info = extract_up_down_from_csv_file(seq_info)
-		if amr_found:
-			ref_amr_info_list.append(amr_info)
-			if up_info and not similar_seq_annotation_already_exist(up_info, ref_up_info_list):
-				ref_up_info_list.append(up_info)
-			if down_info and not similar_seq_annotation_already_exist(down_info, ref_down_info_list):
-				ref_down_info_list.append(down_info)
-	return ref_amr_info_list, ref_up_info_list, ref_down_info_list
+# def read_ref_neighborhood_annotation(annotation_file):
+# 	"""
+# 	"""
+# 	ref_up_info_list = []
+# 	ref_down_info_list = []
+# 	ref_amr_info_list = []
+# 	with open(annotation_file, 'r') as myfile:
+# 		myreader = DictReader(myfile)
+# 		old_seq = ''
+# 		seq_info =[]
+# 		for row in myreader:
+# 			if not row['seq_name'].startswith('extracted'):
+# 				gene_info = {'seq_name':row['seq_name'], 'seq_value':row['seq_value'],
+# 				 			'gene':row['gene'], 'length':row['length'],
+# 							'start_pos':int(row['start_pos']),'end_pos':int(row['end_pos']),
+# 							'target_amr':row['target_amr']}
+# 				cur_seq = row['seq_name']
+# 				if cur_seq!=old_seq:
+# 					if (seq_info):
+# 						amr_found, up_info, down_info, amr_info = extract_up_down_from_csv_file(seq_info)
+# 						if amr_found:
+# 							ref_amr_info_list.append(amr_info)
+# 							if up_info and not similar_seq_annotation_already_exist(up_info, ref_up_info_list):
+# 								ref_up_info_list.append(up_info)
+# 							if down_info and not similar_seq_annotation_already_exist(down_info, ref_down_info_list):
+# 								ref_down_info_list.append(down_info)
+# 					seq_info = []
+# 					old_seq = cur_seq
+# 				seq_info.append(gene_info)
+# 		amr_found, up_info, down_info, amr_info = extract_up_down_from_csv_file(seq_info)
+# 		if amr_found:
+# 			ref_amr_info_list.append(amr_info)
+# 			if up_info and not similar_seq_annotation_already_exist(up_info, ref_up_info_list):
+# 				ref_up_info_list.append(up_info)
+# 			if down_info and not similar_seq_annotation_already_exist(down_info, ref_down_info_list):
+# 				ref_down_info_list.append(down_info)
+# 	return ref_amr_info_list, ref_up_info_list, ref_down_info_list
 
 def extract_seq_neighborhood_and_annotate(amr_seq, amr_name, seq_length, contig_file,
 								amr_threshold, contig_dir, prokka_prefix, use_RGI,
@@ -120,9 +120,9 @@ def extract_seq_neighborhood_and_annotate(amr_seq, amr_name, seq_length, contig_
 		myLine1 = myLine2 = seq_description + ':\t'
 		found, amr_info , up_info, down_info, seq_info = split_up_down_info(seq, seq_info)
 		if found:
-			if up_info and not similar_seq_annotation_already_exist(up_info, up_info_list):
+			if up_info and not similar_seq_annotation_already_exist(up_info, up_info_list, contig_dir):
 				up_info_list.append(up_info)
-			if down_info and not similar_seq_annotation_already_exist(down_info, down_info_list):
+			if down_info and not similar_seq_annotation_already_exist(down_info, down_info_list, contig_dir):
 				down_info_list.append(down_info)
 			amr_info_list.append(amr_info)
 		else:
@@ -154,6 +154,7 @@ def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_l
 	"""
 	To compare upstream/downstream annotations from contig with those of ref genomes
 	"""
+	out_dir = os.path.dirname(summary_file)
 	ref_len =  len(ref_up_info_list)+len(ref_down_info_list)
 	#if amr was not found in the ref genomes
 	if ref_len==0 and len(ref_amr_info_list)==0:
@@ -177,12 +178,12 @@ def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_l
 	unique_tp = 0
 	for ref_info in ref_up_info_list:
 		for seq_info in up_info_list:
-			if seqs_annotation_are_identical(ref_info, seq_info):
+			if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
 				unique_tp+=1
 				break
 	for ref_info in ref_down_info_list:
 		for seq_info in down_info_list:
-			if seqs_annotation_are_identical(ref_info, seq_info):
+			if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
 				unique_tp+=1
 				break
 	sensitivity = 1 if ref_len==0 else round(float(unique_tp)/ref_len, 2)
@@ -195,7 +196,7 @@ def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_l
 			found_cases_len+=1
 			found_identical_annotation = False
 			for ref_info in ref_up_info_list:
-				if seqs_annotation_are_identical(ref_info, seq_info):
+				if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
 					found_identical_annotation = True
 					break
 			if not found_identical_annotation:
@@ -205,7 +206,7 @@ def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_l
 			found_cases_len+=1
 			found_identical_annotation = False
 			for ref_info in ref_down_info_list:
-				if seqs_annotation_are_identical(ref_info, seq_info):
+				if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
 					found_identical_annotation = True
 					break
 			if not found_identical_annotation:

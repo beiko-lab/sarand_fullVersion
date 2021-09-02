@@ -161,7 +161,8 @@ def main():
                 params.seq_length, sequence_dir, params.BANDAGE_PATH,
                 params.amr_identity_threshold, SEQ_NAME_PREFIX,
                 params.path_node_threshold , params.path_seq_len_percent_threshod,
-                params.max_kmer_size, params.assembler, (amr_file,''))
+                params.max_kmer_size, params.ng_extraction_time_out,
+                params.assembler, (amr_file,''))
         if seq_file=='':
             no_align_file.write(amr_name+'\n')
             sensitivity = 0

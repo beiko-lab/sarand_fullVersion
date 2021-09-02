@@ -1,6 +1,6 @@
 """
 File:		full_pipeline.py
-Aythor:		Somayeh Kafaie
+Author:		Somayeh Kafaie
 Date:		September 2020
 
 
@@ -50,7 +50,6 @@ import yaml
 from sarand.params import Pipeline_tasks, Insertion_type, Assembler_name
 from sarand.extract_neighborhood import neighborhood_graph_extraction, neighborhood_sequence_extraction,\
 							extract_amr_neighborhood_in_ref_genome
-from sarand.find_seq_in_contigs import find_sequence_match
 from sarand.annotation_visualization import visualize_annotation
 from sarand.utils import initialize_logger, check_reads, str2bool, print_params, verify_file_existence,\
 			retrieve_AMR, extract_files, create_fasta_file, extract_amr_names_from_alignment_files,\
@@ -251,7 +250,7 @@ def do_assembly(reads, spades_path, output_dir, thread_num = 16, error_correctio
 
 	return gfa_file, contig_file
 
-def seq_annotation_already_exist(seq_info_list, all_seq_info_lists):
+def seq_annotation_already_exist(seq_info_list, all_seq_info_lists, out_dir):
 	"""
 	To check if annotations found for the new sequence have already exists in the
 	list of annotations extracted from other sequences.
@@ -264,7 +263,7 @@ def seq_annotation_already_exist(seq_info_list, all_seq_info_lists):
 	"""
 	found = False
 	for seq_list in all_seq_info_lists:
-		if seqs_annotation_are_identical(seq_info_list, seq_list, 100):
+		if seqs_annotation_are_identical(seq_info_list, seq_list, out_dir, 100):
 			found = True
 			break
 
@@ -472,7 +471,7 @@ def check_coverage_consistency_remove_rest_seq(seq_info_list_input,
 			if j in to_be_removed_genes:
 				del seq_info[j]
 		#check if the remained sequence already exists in the seq_info_list
-		if seq_info and not similar_seq_annotation_already_exist(seq_info, remained_seqs):
+		if seq_info and not similar_seq_annotation_already_exist(seq_info, remained_seqs, annotate_dir):
 			remained_seqs.append(seq_info)
 
 	#Initialize coverage file
@@ -492,7 +491,7 @@ def check_coverage_consistency_remove_rest_seq(seq_info_list_input,
 
 	return coverage_annotation, len(remained_seqs)
 
-def exists_in_gene_list(gene_info_lists, gene_info):
+def exists_in_gene_list(gene_info_lists, gene_info, out_dir):
 	"""
 	To check if a gene (and its annotation info) are available in a list of
 	annoated sequences. we compare the name of the genes.
@@ -510,7 +509,8 @@ def exists_in_gene_list(gene_info_lists, gene_info):
 			if gene_info['gene']!='' and item['gene']==gene_info['gene']:
 				return True
 			elif gene_info['gene']=='' and item['gene']==gene_info['gene']:
-				return unnamed_genes_are_siginificantly_similar(item, gene_info, threshold = 90)
+				return unnamed_genes_are_siginificantly_similar(item, gene_info,
+				 								out_dir, threshold = 90)
 	return False
 
 def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, summary_file,
@@ -532,6 +532,7 @@ def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, 
 	Return:
 		calculated precision and sensitivity
 	"""
+	out_dir = os.path.dirname(summary_file)
 	ref_len =  len(ref_up_info_list)+len(ref_down_info_list)
 	original_amr_name = retreive_original_amr_name(amr_name)
 	#if amr was not found in the ref genomes
@@ -578,9 +579,9 @@ def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, 
 						amr_found, up_info, down_info, amr_info = extract_up_down_from_csv_file(seq_info)
 						if amr_found:
 							amr_info_list.append(amr_info)
-							if up_info and not similar_seq_annotation_already_exist(up_info, up_info_list):
+							if up_info and not similar_seq_annotation_already_exist(up_info, up_info_list, out_dir):
 								up_info_list.append(up_info)
-							if down_info and not similar_seq_annotation_already_exist(down_info, down_info_list):
+							if down_info and not similar_seq_annotation_already_exist(down_info, down_info_list, out_dir):
 								down_info_list.append(down_info)
 					seq_info = []
 					old_seq = cur_seq
@@ -589,21 +590,21 @@ def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, 
 		amr_found, up_info, down_info, amr_info = extract_up_down_from_csv_file(seq_info)
 		if amr_found:
 			amr_info_list.append(amr_info)
-			if up_info and not similar_seq_annotation_already_exist(up_info, up_info_list):
+			if up_info and not similar_seq_annotation_already_exist(up_info, up_info_list, out_dir):
 				up_info_list.append(up_info)
-			if down_info and not similar_seq_annotation_already_exist(down_info, down_info_list):
+			if down_info and not similar_seq_annotation_already_exist(down_info, down_info_list, out_dir):
 				down_info_list.append(down_info)
 
 	#find the number of unique true-positives, all false positives, total found cases, all unique true cases
 	unique_tp = 0
 	for ref_info in ref_up_info_list:
 		for seq_info in up_info_list:
-			if seqs_annotation_are_identical(ref_info, seq_info):
+			if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
 				unique_tp+=1
 				break
 	for ref_info in ref_down_info_list:
 		for seq_info in down_info_list:
-			if seqs_annotation_are_identical(ref_info, seq_info):
+			if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
 				unique_tp+=1
 				break
 	sensitivity = 1 if ref_len==0 else round(float(unique_tp)/ref_len, 2)
@@ -616,7 +617,7 @@ def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, 
 			found_cases_len+=1
 			found_identical_annotation = False
 			for ref_info in ref_up_info_list:
-				if seqs_annotation_are_identical(ref_info, seq_info):
+				if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
 					found_identical_annotation = True
 					break
 			if not found_identical_annotation:
@@ -626,7 +627,7 @@ def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, 
 			found_cases_len+=1
 			found_identical_annotation = False
 			for ref_info in ref_down_info_list:
-				if seqs_annotation_are_identical(ref_info, seq_info):
+				if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
 					found_identical_annotation = True
 					break
 			if not found_identical_annotation:
@@ -666,6 +667,7 @@ def evaluate_sequences_gene_based_on_coverage(amr_name, coverage_annotation, sum
 	ref_info_list = []
 	seq_info = []
 	seq_info_list = []
+	out_dir = os.path.dirname(summary_file)
 	with open(coverage_annotation, 'r') as myfile:
 		myreader = DictReader(myfile)
 		old_seq = ''
@@ -675,7 +677,7 @@ def evaluate_sequences_gene_based_on_coverage(amr_name, coverage_annotation, sum
 				 			'gene':row['gene'],'length':row['length'],
 							'start_pos':int(row['start_pos']), 'end_pos':int(row['end_pos'])}
 				#find the number of different genes in ref_genomes
-				if not exists_in_gene_list(ref_info_list, ref_info):
+				if not exists_in_gene_list(ref_info_list, ref_info, out_dir):
 					ref_info_list.append(ref_info)
 			else:
 				if row['coverage']=='':
@@ -702,7 +704,7 @@ def evaluate_sequences_gene_based_on_coverage(amr_name, coverage_annotation, sum
 	for ref_info in ref_info_list:
 		found = False
 		for seq_info in seq_info_list:
-			found = exists_in_gene_list(seq_info, ref_info)
+			found = exists_in_gene_list(seq_info, ref_info, out_dir)
 			if found:
 				true_positive+=1
 				break
@@ -712,7 +714,7 @@ def evaluate_sequences_gene_based_on_coverage(amr_name, coverage_annotation, sum
 	for seq_info in seq_info_list:
 		total+=len(seq_info)
 		for gene_info in seq_info:
-			if not exists_in_gene_list(ref_info_list, gene_info):
+			if not exists_in_gene_list(ref_info_list, gene_info, out_dir):
 				false_positive+=1
 	precision = round(1 - float(false_positive)/total, 2)
 
@@ -745,7 +747,7 @@ def evaluate_sequences_gene_based_on_coverage(amr_name, coverage_annotation, sum
 	max_true = 0
 	for i, seq_info in enumerate(seq_info_list2):
 		for gene_info in seq_info:
-			if exists_in_gene_list(ref_info_list, gene_info):
+			if exists_in_gene_list(ref_info_list, gene_info, out_dir):
 				if abs(gene_info['coverage']-amr_coverages[i])> max_true:
 					max_true = round(float(abs(gene_info['coverage']-amr_coverages[i])),2)
 			elif abs(gene_info['coverage']-amr_coverages[i]) < min_false:
@@ -977,9 +979,9 @@ def annotate_ref_genomes(amr_file, output_name, seq_length, ref_genome_files, am
 			myLine1 = myLine2 = seq_description + ':\t'
 			found, ref_amr_info , ref_up_info, ref_down_info, seq_info = split_up_down_info(seq, seq_info)
 			if found:
-				if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list):
+				if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list, annotate_dir):
 					ref_up_info_list.append(ref_up_info)
-				if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list):
+				if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list, annotate_dir):
 					ref_down_info_list.append(ref_down_info)
 				ref_amr_info_list.append(ref_amr_info)
 			else:
@@ -1026,6 +1028,7 @@ def find_up_down_for_reverse_ref(gene_info, ref_seq_info, seq, ref_up_info_list,
 	"""
 
 	"""
+	out_dir = os.path.dirname(gene_file)
 	#upstream: find all annotations from the same contig that their end_pos <= down_limit
 	ref_up_info = []
 	counter = index+1
@@ -1039,7 +1042,7 @@ def find_up_down_for_reverse_ref(gene_info, ref_seq_info, seq, ref_up_info_list,
 			up_info['seq_value'] = seq
 			ref_up_info.insert(0, up_info)
 			counter+=1
-	if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list):
+	if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list, out_dir):
 		ref_up_info_list.append(ref_up_info)
 	myLine1 = myLine2 = ''
 	for gene_up_info in ref_up_info:
@@ -1073,7 +1076,7 @@ def find_up_down_for_reverse_ref(gene_info, ref_seq_info, seq, ref_up_info_list,
 			down_info['end_pos'] = len(seq)-(down_info['end_pos']-to_be_removed)+1
 			down_info['seq_value'] = seq
 			ref_down_info.append(down_info)
-	if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list):
+	if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list, out_dir):
 		ref_down_info_list.append(ref_down_info)
 	myLine1 = myLine2 = ''
 	for gene_down_info in ref_down_info:
@@ -1097,6 +1100,7 @@ def find_up_down_for_regular_ref(gene_info, ref_seq_info, seq, ref_up_info_list,
 						trimmed_annotation_writer, to_be_removed, contig_index = 1):
 	"""
 	"""
+	out_dir = os.path.dirname(gene_file)
 	#upstream: find all annotations from the same contig that their start_pos >= up_limit
 	ref_up_info = []
 	for item in reversed(ref_seq_info[:index]):
@@ -1108,7 +1112,7 @@ def find_up_down_for_regular_ref(gene_info, ref_seq_info, seq, ref_up_info_list,
 			up_info['end_pos'] -= to_be_removed
 			up_info['seq_value'] = seq
 			ref_up_info.insert(0, up_info)
-	if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list):
+	if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list, out_dir):
 		ref_up_info_list.append(ref_up_info)
 	myLine1 = myLine2 = ''
 	for gene_up_info in ref_up_info:
@@ -1144,7 +1148,7 @@ def find_up_down_for_regular_ref(gene_info, ref_seq_info, seq, ref_up_info_list,
 			down_info['seq_value'] = seq
 			ref_down_info.append(down_info)
 			counter+=1
-	if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list):
+	if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list, out_dir):
 		ref_down_info_list.append(ref_down_info)
 	myLine1 = myLine2 = ''
 	for gene_down_info in ref_down_info:
@@ -1367,9 +1371,9 @@ def extract_ref_neighborhood_and_annotate(amr_file, amr_name, cami_info, seq_len
 		myLine1 = myLine2 = seq_description + ':\t'
 		found, ref_amr_info , ref_up_info, ref_down_info, seq_info = split_up_down_info(seq, seq_info)
 		if found:
-			if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list):
+			if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list, annotate_dir):
 				ref_up_info_list.append(ref_up_info)
-			if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list):
+			if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list, annotate_dir):
 				ref_down_info_list.append(ref_down_info)
 			ref_amr_info_list.append(ref_amr_info)
 		else:
@@ -1460,7 +1464,7 @@ def extract_graph_seqs_annotation_parallel(amr_name, path_info_file, neighborhoo
 		if path_info_list:
 			coverage_list = find_gene_coverage(seq_info, path_info_list[counter-1])
 		#Check if this annotation has already been found
-		found = seq_annotation_already_exist(seq_info, all_seq_info_list)
+		found = seq_annotation_already_exist(seq_info, all_seq_info_list, annotate_dir)
 		#If it's a novel sequence correct annotation (if applicable) for cases that RGI doesn't have a hit but Prokka has
 		if not found:
 			all_seq_info_list.append(seq_info)
@@ -1602,6 +1606,7 @@ def extract_graph_seqs_annotation(amr_name, path_info_file, neighborhood_seq_fil
 			if not amr_found:
 				logging.error("ERROR: no target amr was found in the extracted sequence")
 				error_writer.write(amr_name+' annotation not found! '+" seq_info: "+str(seq_info)+'\n')
+				counter+=1
 				continue
 				#import pdb; pdb.set_trace()
 			#calculate the coverage of annotated genes
@@ -1609,7 +1614,7 @@ def extract_graph_seqs_annotation(amr_name, path_info_file, neighborhood_seq_fil
 			if path_info_list:
 				coverage_list = find_gene_coverage(seq_info, path_info_list[counter-1])
 			#Check if this annotation has already been found
-			found = seq_annotation_already_exist(seq_info, all_seq_info_list)
+			found = seq_annotation_already_exist(seq_info, all_seq_info_list, annotate_dir)
 			#If it's a novel sequence correct annotation if possible
 			if not found:
 				all_seq_info_list.append(seq_info)
@@ -3020,12 +3025,12 @@ def sequence_neighborhood_main(params, gfa_file, graph_file, amr_seq_align_info)
 	sequence_dir = os.path.join(params.output_dir, SEQ_DIR_NAME, SEQ_DIR_NAME+'_'+str(params.seq_length))
 	if not os.path.exists(sequence_dir):
 		os.makedirs(sequence_dir)
-	if params.multi_processor:
+	if params.multi_processor and params.ng_extraction_time_out<=0:
 		p_extraction = partial(neighborhood_sequence_extraction, gfa_file, params.seq_length,
 							sequence_dir, params.BANDAGE_PATH,
 							params.amr_identity_threshold, SEQ_NAME_PREFIX,
 							params.path_node_threshold , params.path_seq_len_percent_threshold,
-							params.max_kmer_size, params.assembler)
+							params.max_kmer_size, params.ng_extraction_time_out, params.assembler)
 		with Pool(params.core_num) as p:
 			lists = p.map(p_extraction, amr_seq_align_info)
 		seq_files, path_info_files = zip(*lists)
@@ -3035,7 +3040,8 @@ def sequence_neighborhood_main(params, gfa_file, graph_file, amr_seq_align_info)
 								sequence_dir, params.BANDAGE_PATH,
 								params.amr_identity_threshold, SEQ_NAME_PREFIX,
 								params.path_node_threshold , params.path_seq_len_percent_threshold,
-								params.max_kmer_size, params.assembler, amr_file)
+								params.max_kmer_size, params.ng_extraction_time_out,
+								params.assembler, amr_file)
 			if seq_file:
 				path_info_files.append(path_info_file)
 				seq_files.append(seq_file)
@@ -3326,6 +3332,8 @@ def update_full_pipeline_params(params, config):
 		params.path_node_threshold = config['path_node_threshold']
 	if 'path_seq_len_percent_threshold' in config_params:
 		params.path_seq_len_percent_threshold = config['path_seq_len_percent_threshold']
+	if 'ng_extraction_time_out' in config_params:
+		params.ng_extraction_time_out = config['ng_extraction_time_out']
 	if 'use_RGI' in config_params:
 		params.use_RGI = config['use_RGI']
 	if 'RGI_include_loose' in config_params:

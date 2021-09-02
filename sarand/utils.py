@@ -208,6 +208,13 @@ def validate_print_parameters_tools(params, func):
 			logging.error('coverage_thr should have an integer value >= -1'+ params.read_length)
 			sys.exit()
 		logging.info("coverage_thr: "+str(params.coverage_thr))
+		if not isinstance(params.ng_extraction_time_out, int) or params.ng_extraction_time_out==0:
+			logging.error('time_out_counter should have an integer value in seconds or a negative value in case of no time-out')
+			sys.exit()
+		if params.ng_extraction_time_out<0:
+			logging.info('No time-out has been set for extracting neighborhood sequences')
+		else:
+			logging.info("time_out_counter: "+str(params.ng_extraction_time_out))
 		if not os.path.exists(params.ref_genome_files) and\
 			os.path.exists(os.path.join(params.main_dir, params.ref_genome_files)):
 			params.ref_genome_files = os.path.join(params.main_dir, params.ref_genome_files)
@@ -617,9 +624,9 @@ def annotate_sequence(seq, seq_description, output_dir, prokka_prefix, use_RGI =
 		the list of extracted annotation information for the sequence
 	"""
 	#write the sequence into a temporary file
-	seq_file_name = create_fasta_file(seq, '', file_name='temp_'+seq_description)
-
-	prokka_dir = 'prokka_dir_'+seq_description+'_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
+	seq_file_name = create_fasta_file(seq, '', file_name='temp_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+seq_description)
+	pid = os.getpid()
+	prokka_dir = 'prokka_dir_'+seq_description+'_'+str(pid)+'_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
 	prefix_name = 'mygenome_'+seq_description
 	# if os.path.exists(prokka_dir):
 	# 	try:
@@ -779,7 +786,7 @@ def compare_two_sequences(subject, query, output_dir, threshold = 90, switch_all
 	blast_file = open(blast_file_name, "w")
 	blast_command = subprocess.run(["blastn", "-query", query_file_name, "-subject",
 						subject_file_name,"-task", "blastn-short", "-outfmt",
-						"10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovs"],
+						"10 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp"],
 						stdout=blast_file, check= True)
 	blast_file.close()
 	# command = 'blastn -query '+query_file_name+' -subject '+subject_file_name+\
@@ -801,7 +808,7 @@ def compare_two_sequences(subject, query, output_dir, threshold = 90, switch_all
 				return True
 	return False
 
-def unnamed_genes_are_siginificantly_similar(gene_info1, gene_info2, threshold = 90):
+def unnamed_genes_are_siginificantly_similar(gene_info1, gene_info2, output_dir, threshold = 90):
 	"""
 	"""
 	if gene_info1['gene']!='' or gene_info2['gene']!='':
@@ -810,9 +817,9 @@ def unnamed_genes_are_siginificantly_similar(gene_info1, gene_info2, threshold =
 	seq1 = gene_info1['seq_value'][start1-1:end1-1]
 	start2, end2 = min(gene_info2['start_pos'], gene_info2['end_pos']), max(gene_info2['start_pos'], gene_info2['end_pos'])
 	seq2 = gene_info2['seq_value'][start2-1:end2-1]
-	return compare_two_sequences(seq1, seq2, '', threshold)
+	return compare_two_sequences(seq1, seq2, output_dir, threshold)
 
-def seqs_annotation_are_identical(seq_info1, seq_info2, threshold = 90):
+def seqs_annotation_are_identical(seq_info1, seq_info2, out_dir, threshold = 90):
 	"""
 	"""
 	if len(seq_info1)==len(seq_info2):
@@ -821,13 +828,14 @@ def seqs_annotation_are_identical(seq_info1, seq_info2, threshold = 90):
 			gene_info2 = seq_info2[i]
 			if (gene_info1['gene']==gene_info2['gene'] and gene_info1['gene']!='') or\
 				(gene_info1['gene']==gene_info2['gene'] and\
-				unnamed_genes_are_siginificantly_similar(gene_info1, gene_info2, threshold) ):
+				unnamed_genes_are_siginificantly_similar(gene_info1, gene_info2, out_dir, threshold) ):
 				identical_rows+=1
 		if identical_rows == len(seq_info1):
 			return True
 	return False
 
-def similar_seq_annotation_already_exist(seq_info_list, all_seq_info_lists, threshold = 90):
+def similar_seq_annotation_already_exist(seq_info_list, all_seq_info_lists, out_dir,
+											threshold = 90):
 	"""
 	To check if annotations found for the new sequence have already exists in the
 	list of annotations extracted from other sequences.
@@ -840,7 +848,7 @@ def similar_seq_annotation_already_exist(seq_info_list, all_seq_info_lists, thre
 	"""
 	found = False
 	for seq_list in all_seq_info_lists:
-		if seqs_annotation_are_identical(seq_info_list, seq_list, threshold):
+		if seqs_annotation_are_identical(seq_info_list, seq_list, out_dir, threshold):
 		# if len(seq_list)==len(seq_info_list):
 		# 	similar_rows = 0
 		# 	for i, seq_info in enumerate(seq_info_list):

@@ -102,10 +102,10 @@ def annotate_neighborhood_sequences(ref_ng_info_list, out_dir, prokka_prefix,
                     prokka_prefix, use_RGI, RGI_include_loose)
             found, ref_amr_info , ref_up_info, ref_down_info, seq_info = split_up_down_info(seq, seq_info)
             if found:
-                if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list):
+                if ref_up_info and not similar_seq_annotation_already_exist(ref_up_info, ref_up_info_list, out_dir):
                     ref_up_info_list.append(ref_up_info)
                     up_description_list.append(seq_description)
-                if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list):
+                if ref_down_info and not similar_seq_annotation_already_exist(ref_down_info, ref_down_info_list, out_dir):
                     ref_down_info_list.append(ref_down_info)
                     down_description_list.append(seq_description)
                 ref_amr_info_list.append(ref_amr_info)

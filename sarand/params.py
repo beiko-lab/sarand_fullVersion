@@ -46,12 +46,12 @@ class Assembler_name(enum.Enum):
 BANDAGE_PATH = 'Bandage'
 ART_PATH = 'art_illumina'
 SPADES_PATH = 'spades.py'
-# cwd = os.getcwd()
-# PROKKA_COMMAND_PREFIX = 'docker run -v '+cwd+':/data staphb/prokka:latest '
+#cwd = os.getcwd()
+#PROKKA_COMMAND_PREFIX = 'docker run -v '+cwd+':/data staphb/prokka:latest '
 PROKKA_COMMAND_PREFIX = ''
 
 amr_db = pkg_resources.resource_filename(__name__, 'data/CARD_AMR_seq.fasta')
-main_dir = 'test/'
+main_dir = 'test'
 output_dir = os.path.join(main_dir , 'output_dir')
 
 multi_processor = True
@@ -90,7 +90,8 @@ elif assembler == Assembler_name.megahit:
 	assembler_output_dir = os.path.join(main_dir , 'megahit_output')
 	gfa_file = os.path.join(assembler_output_dir , 'k59.gfa')
 	contig_file = os.path.join(assembler_output_dir , 'intermediate_contigs/k59.contigs.fa')
-	max_kmer_size = 119
+	max_kmer_size = 59
+	#max_kmer_size = 119
 elif assembler == Assembler_name.bcalm:
 	assembler_output_dir = os.path.join(main_dir , 'bcalm_output')
 	gfa_file = os.path.join(assembler_output_dir , 'bcalm_graph_55.gfa')
@@ -111,8 +112,11 @@ seq_length = 1000
 # to be used in sequence extraction and after having path_node_threshold number of
 #nodes in our path or already extracting path_seq_len_percent_threshold percent of
 #neighborhood sequence, we stop or only traverse the path from the longest neighbor of the current node
-path_node_threshold =  10
+path_node_threshold =  1000
 path_seq_len_percent_threshold = 90
+#time-out in seconds to stop pre_seq or post_seq extraction
+#default is -1, meaning that there is no time out
+ng_extraction_time_out = 600
 
 use_RGI =  True
 RGI_include_loose = False

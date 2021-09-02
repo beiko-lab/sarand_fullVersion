@@ -24,7 +24,7 @@ import collections
 import subprocess
 from Bio import SeqIO
 
-OUTPUT_DIR = 'temp'
+OUTPUT_DIR = 'temp_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 result_file = os.path.join(OUTPUT_DIR,'sequence_match_list'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')+'.csv')
 
 def write_results(result_file, query, contig_list):

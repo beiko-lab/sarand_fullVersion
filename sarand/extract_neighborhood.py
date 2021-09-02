@@ -30,6 +30,8 @@ from gfapy.sequence import rc
 import shutil
 import logging
 import enum
+import multiprocessing
+from csv import DictReader
 
 from sarand.utils import reverse_sign, find_node_orient, find_node_name, find_node_name_orient,\
 					exist_in_path, compare_two_sequences, read_path_info_from_align_file,\
@@ -46,6 +48,7 @@ BOTH_DIR_RECURSIVE = True
 #and only extract the sequence from the longest one to reduce the processing time!!!
 ONLY_LONGEST_EDGE = False
 TEMP_DIR = 'temp'
+#TIME_OUT_COUNTER = 600
 
 def retrieve_AMR(file_path):
 	"""
@@ -550,10 +553,14 @@ def generate_sequence_path(myGraph, node_list, orientation_list, start_pos, end_
 		pre_path_list = [[]]
 	if not post_path_list:
 		post_path_list = [[]]
+	# if not pre_sequence_list:
+	# 	pre_sequence_list = [['']]
+	# if not post_sequence_list:
+	# 	post_sequence_list = [['']]
 	if not pre_sequence_list:
-		pre_sequence_list = [['']]
+		pre_sequence_list = ['']
 	if not post_sequence_list:
-		post_sequence_list = [['']]
+		post_sequence_list = ['']
 	#add direction to nodes representing AMR gene
 	node_orient_list = [node + orient for node, orient in zip(node_list, orientation_list)]
 	#annotate the path representing AMR gene
@@ -593,7 +600,7 @@ def generate_sequence_path(myGraph, node_list, orientation_list, start_pos, end_
 	return sequence_list, path_list, path_info_list
 
 def append_path_sequence(sequence, path, sequence_list, path_list, output_dir,
-							path_length, path_length_list):
+							path_length, path_length_list, outfile):
 	"""
 	"""
 	index, found = similar_sequence_exits(sequence_list, sequence, output_dir)
@@ -601,10 +608,25 @@ def append_path_sequence(sequence, path, sequence_list, path_list, output_dir,
 		sequence_list.append(sequence)
 		path_list.append(path)
 		path_length_list.append(path_length)
+		#write outputs to the temp file
+		if sequence!='':
+			with open(outfile, 'a') as fd:
+				writer = csv.writer(fd)
+				writer.writerow([len(sequence_list)-1, sequence, path, path_length])
+
 	elif index>=0:
 		sequence_list[index] = sequence
 		path_list[index] = path
 		path_length_list[index] = path_length
+		#change corresponding entry in temp file
+		if sequence!='':
+			r = csv.reader(open(outfile))
+			lines = list(r)
+			#lines[0] contains the headers
+			lines[index+1] = [str(index), str(sequence), str(path), str(path_length)]
+			writer = csv.writer(open(outfile, 'w'))
+			writer.writerows(lines)
+
 	return sequence_list, path_list, path_length_list
 
 def find_longest_post_neighbor(node, node_orient, node_list, both_dir):
@@ -646,7 +668,8 @@ def find_longest_pre_neighbor(node, node_orient, node_list, both_dir):
 def extract_post_sequence_recursively_both_dir(node, node_orient, current_seq, current_path,
 												length, sequence_list, path_list, node_list,
 												compare_dir,length_thr, path_thr,
-												current_path_length, path_length_list):
+												current_path_length, path_length_list,
+												out_file):
 	"""
 	To extract recursively the sequences following the AMR gene sequence and their paths
 	In this function, we do this:
@@ -715,14 +738,14 @@ def extract_post_sequence_recursively_both_dir(node, node_orient, current_seq, c
 						sequence_list, path_list, path_length_list =\
 									append_path_sequence(seq[:len(current_seq)+length],
 									path, sequence_list, path_list, compare_dir,
-									path_length, path_length_list)
+									path_length, path_length_list, out_file)
 					else:
 						sequence_list, path_list, path_length_list =\
 									extract_post_sequence_recursively_both_dir(
 									to_segment, to_orient, seq, path, length - len(new_seq),
 									sequence_list, path_list, node_list, compare_dir,
 									length_thr, path_thr,
-									path_length, path_length_list)
+									path_length, path_length_list, out_file)
 				# graph loops are specified in { }
 				elif index > -1:
 					current_path[index] = '{'+current_path[index]
@@ -733,13 +756,13 @@ def extract_post_sequence_recursively_both_dir(node, node_orient, current_seq, c
 	if not found_any_edge:
 		sequence_list, path_list, path_length_list = append_path_sequence(current_seq,
 							current_path, sequence_list, path_list, compare_dir,
-							current_path_length, path_length_list)
+							current_path_length, path_length_list, out_file)
 	return sequence_list, path_list, path_length_list
 
 def extract_post_sequence_recursively(node, node_orient, current_seq, current_path,
 										length, sequence_list, path_list, node_list,
 										compare_dir, length_thr, path_thr,
-										current_path_length, path_length_list):
+										current_path_length, path_length_list, out_file):
 	"""
 	To extract recursively the sequences following the AMR gene sequence and their paths
 	Parameters:
@@ -792,14 +815,14 @@ def extract_post_sequence_recursively(node, node_orient, current_seq, current_pa
 						sequence_list, path_list, path_length_list =\
 								append_path_sequence(seq[:len(current_seq)+length],
 								path, sequence_list, path_list, compare_dir,
-								path_length, path_length_list)
+								path_length, path_length_list, out_file)
 					else:
 						sequence_list, path_list, path_length_list =\
 								extract_post_sequence_recursively(
 								edge.to_segment, edge.to_orient, seq, path,
 								length - len(new_seq), sequence_list, path_list,
 								node_list, compare_dir, length_thr, path_thr,
-								path_length, path_length_list)
+								path_length, path_length_list, out_file)
 				# graph loops are specified in { }
 				elif index > -1:
 					current_path[index] = '{'+current_path[index]
@@ -810,11 +833,12 @@ def extract_post_sequence_recursively(node, node_orient, current_seq, current_pa
 	if not found_any_edge:
 		sequence_list, path_list, path_length_list = append_path_sequence(current_seq, current_path,
 										sequence_list, path_list, compare_dir,
-										current_path_length, path_length_list)
+										current_path_length, path_length_list, out_file)
 	return sequence_list, path_list, path_length_list
 
-def extract_post_sequence(node, node_orient, node_list, length, end_pos, compare_dir,
-							remained_len_thr, path_thr, both_dir = BOTH_DIR_RECURSIVE):
+def extract_post_sequence(node, node_orient, node_list, length, end_pos, output_dir,
+						output_name, remained_len_thr, path_thr,
+						time_out_counter, both_dir = BOTH_DIR_RECURSIVE):
 	"""
 	The initial function to extract the post_sequence of AMR.
 	it adds the sequence following the AMR sequence (if there is any) in the last
@@ -853,37 +877,102 @@ def extract_post_sequence(node, node_orient, node_list, length, end_pos, compare
 		path_length_list.append(path_length)
 	#check all edges started from last_segment
 	else:
+		#create a temporaty directory
+		compare_dir = os.path.join(output_dir,'temp_comparison_'+output_name)
+		if not os.path.exists(compare_dir):
+			try:
+				os.makedirs(compare_dir)
+			except OSError as exc:
+				if exc.errno != errno.EEXIST:
+					raise
+				pass
+		#File to store pre_sequence results in case we need to stop the task by time-out before it completes
+		temp_result = os.path.join(output_dir,'post_temp_result_'+output_name+'_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.csv')
+		with open(temp_result, 'w') as fd:
+			writer = csv.writer(fd)
+			writer.writerow(['index', 'post_seq', 'post_path', 'post_path_len'])
 		if len(post_sequence)>0:
 			path_length.append(len(post_sequence))
+		p = ''
 		if not both_dir:
-			post_sequence_list, post_path_list, path_length_list =\
-									extract_post_sequence_recursively(
-									node = node, node_orient = node_orient,
-									current_seq = post_sequence, current_path = [],
-									length = postfix_length, sequence_list = [],
-									path_list = [], node_list = node_list,
-									comapre_dir = compare_dir,
-									length_thr = remained_len_thr, path_thr = path_thr,
-									current_path_length = path_length,
-									path_length_list = path_length_list)
+			if time_out_counter<=0:
+				extract_post_sequence_recursively(
+							node = node, node_orient = node_orient,
+							current_seq = post_sequence, current_path = [],
+							length = postfix_length, sequence_list = [],
+							path_list = [], node_list = node_list,
+							comapre_dir = compare_dir,
+							length_thr = remained_len_thr, path_thr = path_thr,
+							current_path_length = path_length,
+							path_length_list = path_length_list,
+							out_file = temp_result)
+			else:
+				p = multiprocessing.Process(target=extract_post_sequence_recursively,
+									args = (node, node_orient, post_sequence, [],
+									postfix_length, [], [], node_list,
+									compare_dir, remained_len_thr, path_thr,
+									path_length, path_length_list, temp_result))
+				p.start()
+				# Wait for time_out_counter seconds or until process finishes
+				p.join(time_out_counter)
 		else:
-			post_sequence_list, post_path_list, path_length_list =\
-									extract_post_sequence_recursively_both_dir(
-									node = node, node_orient = node_orient,
-									current_seq = post_sequence, current_path = [],
-									length = postfix_length, sequence_list = [],
-									path_list = [], node_list = node_list,
-									compare_dir = compare_dir,
-									length_thr = remained_len_thr, path_thr = path_thr,
-									current_path_length = path_length,
-									path_length_list = path_length_list)
+			if time_out_counter<=0:
+				extract_post_sequence_recursively_both_dir(
+							node = node, node_orient = node_orient,
+							current_seq = post_sequence, current_path = [],
+							length = postfix_length, sequence_list = [],
+							path_list = [], node_list = node_list,
+							compare_dir = compare_dir,
+							length_thr = remained_len_thr, path_thr = path_thr,
+							current_path_length = path_length,
+							path_length_list = path_length_list,
+							out_file = temp_result)
+			else:
+				p = multiprocessing.Process(target=extract_post_sequence_recursively_both_dir,
+									args = (node, node_orient, post_sequence, [],
+									postfix_length, [], [], node_list,
+									compare_dir, remained_len_thr, path_thr,
+									path_length, path_length_list, temp_result))
+				p.start()
+				# Wait for time_out_counter seconds or until process finishes
+				p.join(time_out_counter)
+
+		if p!='' and p.is_alive():
+			logging.info("extract_post_sequence is still running... let's kill it...")
+			# Terminate - may not work if process is stuck for good
+			p.terminate()
+			# OR Kill - will work for sure, no chance for process to finish nicely however
+			# p.kill()
+			p.join()
+		#Read the result from temp file
+		with open(temp_result) as fd:
+			myreader = DictReader(fd)
+			for row in myreader:
+				post_sequence_list.append(row['post_seq'])
+				if row['post_path']!='[]':
+					path=[a.strip("'") for a in row['post_path'][1:-1].split(', ')]
+				else:
+					path=[]
+				post_path_list.append(path)
+				path_length =[int(l.strip()) for l in row['post_path_len'][1:-1].split(',') if l.strip()!='']
+				path_length_list.append(path_length)
+		#delete temp file
+		if os.path.isfile(temp_result):
+			os.remove(temp_result)
+		# delete the temp folder
+		if os.path.exists(compare_dir):
+			try:
+				shutil.rmtree(compare_dir)
+			except OSError as e:
+				logging.error("Error: %s - %s." % (e.filename, e.strerror))
 
 	return post_sequence_list, post_path_list, path_length_list
 
 def extract_pre_sequence_recursively_both_dir(node, node_orient, current_seq, current_path,
 												length, sequence_list, path_list, node_list,
 												compare_dir, length_thr, path_thr,
-												current_path_length, path_length_list):
+												current_path_length, path_length_list,
+												out_file):
 	"""
 	To extract recursively the sequences preceding the AMR gene sequence and their paths
 	In this function, we do this:
@@ -951,7 +1040,7 @@ def extract_pre_sequence_recursively_both_dir(node, node_orient, current_seq, cu
 						sequence_list, path_list, path_length_list =\
 									append_path_sequence(seq[len(new_seq)-length:],
 									path, sequence_list, path_list, compare_dir,
-									path_length, path_length_list)
+									path_length, path_length_list, out_file)
 					else:
 						sequence_list, path_list, path_length_list =\
 									extract_pre_sequence_recursively_both_dir(
@@ -959,7 +1048,7 @@ def extract_pre_sequence_recursively_both_dir(node, node_orient, current_seq, cu
 									length - len(new_seq), sequence_list,
 									path_list, node_list, compare_dir,
 									length_thr, path_thr, path_length,
-									path_length_list)
+									path_length_list, out_file)
 				# graph loops are specified in { }
 				elif index>-1:
 					current_path[index] = current_path[index] + '}'
@@ -970,13 +1059,14 @@ def extract_pre_sequence_recursively_both_dir(node, node_orient, current_seq, cu
 	if not found_any_edge:
 		sequence_list, path_list, path_length_list = append_path_sequence(current_seq,
 										current_path,sequence_list, path_list, compare_dir,
-										current_path_length, path_length_list)
+										current_path_length, path_length_list, out_file)
 	return sequence_list, path_list, path_length_list
 
 def extract_pre_sequence_recursively(node, node_orient, current_seq, current_path,
 										length, sequence_list, path_list, node_list,
 										compare_dir, length_thr, path_thr,
-										current_path_length, path_length_list):
+										current_path_length, path_length_list,
+										out_file):
 	"""
 	To extract recursively the sequences preceding the AMR gene sequence and their paths
 	Parameters:
@@ -1028,14 +1118,14 @@ def extract_pre_sequence_recursively(node, node_orient, current_seq, current_pat
 						sequence_list, path_list, path_length_list =\
 									append_path_sequence(seq[len(new_seq)-length:],
 									path, sequence_list, path_list, compare_dir,
-									path_length, path_length_list)
+									path_length, path_length_list, out_file)
 					else:
 						sequence_list, path_list, path_length_list =\
 						 			extract_pre_sequence_recursively(
 									edge.from_segment, edge.from_orient, seq, path,
 									length - len(new_seq), sequence_list, path_list,
 									node_list, compare_dir, length_thr, path_thr,
-									path_length, path_length_list)
+									path_length, path_length_list, out_file)
 				# graph loops are specified in { }
 				elif index>-1:
 					current_path[index] = current_path[index] + '}'
@@ -1046,11 +1136,13 @@ def extract_pre_sequence_recursively(node, node_orient, current_seq, current_pat
 	if not found_any_edge:
 		sequence_list, path_list, path_length_list = append_path_sequence(current_seq,
 									current_path, sequence_list, path_list,
-									compare_dir, current_path_length, path_length_list)
+									compare_dir, current_path_length, path_length_list,
+									out_file)
 	return sequence_list, path_list, path_length_list
 
-def extract_pre_sequence(node, node_orient, node_list, length, start_pos, compare_dir,
-							remained_len_thr, path_thr, both_dir = BOTH_DIR_RECURSIVE):
+def extract_pre_sequence(node, node_orient, node_list, length, start_pos, output_dir,
+						output_name, remained_len_thr, path_thr, time_out_counter,
+						both_dir = BOTH_DIR_RECURSIVE):
 	"""
 	The initial function to extract the pre_sequence of AMR.
 	it adds the sequence preceding the AMR sequence (if there is any) in the first
@@ -1090,30 +1182,93 @@ def extract_pre_sequence(node, node_orient, node_list, length, start_pos, compar
 		path_length_list.append(path_length)
 	#check all edges ended at first node
 	else:
+		#create a temporaty directory
+		compare_dir = os.path.join(output_dir,'temp_comparison_'+output_name)
+		if not os.path.exists(compare_dir):
+			try:
+				os.makedirs(compare_dir)
+			except OSError as exc:
+				if exc.errno != errno.EEXIST:
+					raise
+				pass
+		#File to store pre_sequence results in case we need to stop the task by time-out before it completes
+		temp_result = os.path.join(output_dir,'pre_temp_result_'+output_name+'_'+datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'.csv')
+		with open(temp_result, 'w') as fd:
+			writer = csv.writer(fd)
+			writer.writerow(['index', 'pre_seq', 'pre_path', 'pre_path_len'])
 		if len(pre_sequence)>0:
 			path_length.append(len(pre_sequence))
+		p=''
 		if not both_dir:
-			pre_sequence_list, pre_path_list, path_length_list =\
-									extract_pre_sequence_recursively(
-									node = node, node_orient = node_orient,
-									current_seq = pre_sequence, current_path = [],
-									length = prefix_length, sequence_list = [],
-									path_list = [], node_list = node_list,
-									compare_dir = compare_dir,
-									length_thr = remained_len_thr,path_thr = path_thr,
-									current_path_length = path_length,
-									path_length_list = path_length_list)
+			if time_out_counter<=0:
+				extract_pre_sequence_recursively(
+							node = node, node_orient = node_orient,
+							current_seq = pre_sequence, current_path = [],
+							length = prefix_length, sequence_list = [],
+							path_list = [], node_list = node_list,
+							compare_dir = compare_dir,
+							length_thr = remained_len_thr,path_thr = path_thr,
+							current_path_length = path_length,
+							path_length_list = path_length_list,
+							out_file = temp_result)
+			else:
+				p = multiprocessing.Process(target=extract_pre_sequence_recursively,
+								args = (node, node_orient, pre_sequence,
+								[], prefix_length, [], [], node_list,
+								compare_dir, remained_len_thr, path_thr,
+								path_length, path_length_list, temp_result))
+				p.start()
+				# Wait for time_out_counter seconds or until process finishes
+				p.join(time_out_counter)
 		else:
-			pre_sequence_list, pre_path_list, path_length_list =\
-									extract_pre_sequence_recursively_both_dir(
-									node = node, node_orient = node_orient,
-									current_seq = pre_sequence, current_path = [],
-									length = prefix_length, sequence_list = [],
-									path_list = [], node_list = node_list,
-									compare_dir = compare_dir,
-									length_thr = remained_len_thr, path_thr = path_thr,
-									current_path_length = path_length,
-									path_length_list = path_length_list)
+			if time_out_counter<=0:
+				extract_pre_sequence_recursively_both_dir(
+							node = node, node_orient = node_orient,
+							current_seq = pre_sequence, current_path = [],
+							length = prefix_length, sequence_list = [],
+							path_list = [], node_list = node_list,
+							compare_dir = compare_dir,
+							length_thr = remained_len_thr, path_thr = path_thr,
+							current_path_length = path_length,
+							path_length_list = path_length_list,
+							out_file = temp_result)
+			else:
+				p = multiprocessing.Process(target=extract_pre_sequence_recursively_both_dir,
+								args=(node, node_orient, pre_sequence,[],
+								prefix_length, [], [], node_list, compare_dir,
+								remained_len_thr, path_thr, path_length,
+								path_length_list, temp_result))
+				p.start()
+				# Wait for time_out_counter seconds or until process finishes
+				p.join(time_out_counter)
+		if p!='' and p.is_alive():
+			logging.info("extract_pre_sequence is still running... let's kill it...")
+			# Terminate - may not work if process is stuck for good
+			p.terminate()
+			# OR Kill - will work for sure, no chance for process to finish nicely however
+			# p.kill()
+			p.join()
+		#Read the result from temp file
+		with open(temp_result) as fd:
+			myreader = DictReader(fd)
+			for row in myreader:
+				pre_sequence_list.append(row['pre_seq'])
+				if row['pre_path']!='[]':
+					path=[a.strip("'") for a in row['pre_path'][1:-1].split(', ')]
+				else:
+					path=[]
+				pre_path_list.append(path)
+				path_length =[int(l.strip()) for l in row['pre_path_len'][1:-1].split(',') if l.strip()!='']
+				path_length_list.append(path_length)
+		#delete temp file
+		if os.path.isfile(temp_result):
+			os.remove(temp_result)
+		# delete the temp folder
+		if os.path.exists(compare_dir):
+			try:
+				shutil.rmtree(compare_dir)
+			except OSError as e:
+				logging.error("Error: %s - %s." % (e.filename, e.strerror))
 
 	return pre_sequence_list, pre_path_list, path_length_list
 
@@ -1177,11 +1332,11 @@ def calculate_coverage(segment, max_kmer_size, node, assembler):
 		coverage
 
 	"""
-	if assembler == Assembler_name.metaspades or assembler == Assembler_name.bcalm:
+	if assembler.name == Assembler_name.metaspades.name or assembler.name == Assembler_name.bcalm.name:
 		coverage = segment.KC/(len(segment.sequence)-max_kmer_size)
-	elif assembler == Assembler_name.megahit:
+	elif assembler.name == Assembler_name.megahit.name:
 		coverage = float(node.split('cov_')[1].split('_')[0])
-	elif assembler == Assembler_name.metacherchant or assembler == Assembler_name.spacegraphcats :
+	elif assembler.name == Assembler_name.metacherchant.name or assembler.name == Assembler_name.spacegraphcats.name :
 		coverage = -1
 	else:
 		logging.error("no way of calculating node coverage has been defined for this assembler!")
@@ -1215,6 +1370,10 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 		pre_path_list = [[]]
 	if not post_path_list:
 		post_path_list = [[]]
+	if not pre_path_length_list:
+		pre_path_length_list = [[]]
+	if not post_path_length_list:
+		post_path_length_list = [[]]
 	#find amr_path_length_info
 	start = 0
 	amr_path_length_info = []
@@ -1316,7 +1475,7 @@ def generate_node_range_coverage(myGraph, node_list, orientation_list, start_pos
 
 def extract_neighborhood_sequence(gfa_file, length, amr_path_info, remained_len_thr,
 									path_thr,output_name, max_kmer_size, seq_info,
-									assembler = Assembler_name.metaspades):
+									output_dir, time_out_counter, assembler = Assembler_name.metaspades):
 	"""
 	To extract all linear sequences with length = length from the start and end of the AMR gene
 	In some cases, we might need to extract only the upstream or downstream
@@ -1342,10 +1501,11 @@ def extract_neighborhood_sequence(gfa_file, length, amr_path_info, remained_len_
 			and their info as well as modified seq_info
 	"""
 	try:
+		logging.info("loading the graph from "+gfa_file+" ...")
 		myGraph = gfapy.Gfa.from_file(gfa_file)
 	except Exception as e:
-		logging.error('Not loading the graph successfully: '+e)
-		if assembler == Assembler_name.metacherchant:
+		logging.error('Not loading the graph successfully: '+str(e))
+		if assembler.name == Assembler_name.metacherchant.name:
 			return [],[],[],[]
 		else:
 			import pdb; pdb.set_trace()
@@ -1361,15 +1521,6 @@ def extract_neighborhood_sequence(gfa_file, length, amr_path_info, remained_len_
 		end_pos = len(str(last_segment.sequence))
 
 	logging.debug('last_segment = '+last_segment.name+' start_pos = '+str(start_pos)+' end_pos= '+str(end_pos))
-	#create a temporaty directory
-	compare_dir = 'temp_comparison_'+output_name
-	if not os.path.exists(compare_dir):
-		try:
-			os.makedirs(compare_dir)
-		except OSError as exc:
-			if exc.errno != errno.EEXIST:
-				raise
-			pass
 
 	#Find the sequences and paths for the path provided by bandage+blast for AMR gene
 	if not seq_info['pre_seq']:
@@ -1378,7 +1529,8 @@ def extract_neighborhood_sequence(gfa_file, length, amr_path_info, remained_len_
 		pre_sequence_list, pre_path_list, pre_path_length_list =\
 		 							extract_pre_sequence(myGraph.segment(node_list[0]),
 									orientation_list[0], node_list, length, start_pos,
-									compare_dir, remained_len_thr, path_thr)
+									output_dir, output_name, remained_len_thr,
+									path_thr, time_out_counter)
 		seq_info['pre_seq'] = pre_sequence_list
 		seq_info['pre_path'] = pre_path_list
 		seq_info['pre_len'] = pre_path_length_list
@@ -1394,7 +1546,8 @@ def extract_neighborhood_sequence(gfa_file, length, amr_path_info, remained_len_
 		post_sequence_list, post_path_list, post_path_length_list =\
 									extract_post_sequence(last_segment,
 									orientation_list[-1], node_list, length, end_pos,
-									compare_dir, remained_len_thr, path_thr)
+									output_dir, output_name, remained_len_thr,
+									path_thr, time_out_counter)
 		seq_info['post_seq'] = post_sequence_list
 		seq_info['post_path'] = post_path_list
 		seq_info['post_len'] = post_path_length_list
@@ -1426,13 +1579,15 @@ def extract_neighborhood_sequence(gfa_file, length, amr_path_info, remained_len_
 		#Find the sequence before the AMR gene
 		pre_sequence_list, pre_path_list, pre_path_length_list =\
 								extract_pre_sequence(myGraph.segment(node_list_reverse[0]),
-								orientation_list_reverse[0], node_list_reverse, length, start_pos_reverse,
-								compare_dir, remained_len_thr, path_thr)
+								orientation_list_reverse[0], node_list_reverse, length,
+								start_pos_reverse, output_dir, output_name,
+								remained_len_thr, path_thr, time_out_counter)
 		#Find the sequence after the AMR gene
 		post_sequence_list, post_path_list, post_path_length_list =\
 								extract_post_sequence(myGraph.segment(node_list_reverse[-1]),
-								orientation_list_reverse[-1], node_list_reverse, length, end_pos_reverse,
-								compare_dir, remained_len_thr, path_thr)
+								orientation_list_reverse[-1], node_list_reverse, length,
+								end_pos_reverse, output_dir, output_name,
+								remained_len_thr, path_thr, time_out_counter)
 		#Combine pre_ and post_ sequences and paths
 		sequence_list_reverse, path_list_reverse = generate_sequence_path(myGraph,node_list_reverse,
 											orientation_list_reverse, start_pos_reverse,
@@ -1442,12 +1597,6 @@ def extract_neighborhood_sequence(gfa_file, length, amr_path_info, remained_len_
 
 		sequence_list, path_list = remove_identical_sub_sequences(sequence_list+sequence_list_reverse,
 																	path_list+path_list_reverse)
-	# delete the temp folder
-	if os.path.exists(compare_dir):
-		try:
-			shutil.rmtree(compare_dir)
-		except OSError as e:
-			logging.error("Error: %s - %s." % (e.filename, e.strerror))
 
 	return sequence_list, path_list, path_info_list, seq_info
 
@@ -1493,10 +1642,63 @@ def find_amr_related_nodes(amr_file, gfa_file, output_dir, bandage_path = BANDAG
 
 	return found, paths_info
 
-def check_if_similar_ng_extractions_exist(amr_path_info, amr_paths_info):
+# def check_if_similar_ng_extractions_exist(amr_path_info, amr_paths_info):
+# 	"""
+# 	To check the new AMR path found by alignment with the ones already processed!
+# 	If there is a similar AMR pathin amr_paths_info, we don't need to process
+# 	amr_path_info!
+# 	Parameters:
+# 		amr_path_info: the new AMR path
+# 		amr_paths_info: the list of AMR paths processed so far
+# 	Results:
+# 		a dictionary containing the index of an entry from amr_paths_info with similar
+# 		start node-position or end node-position
+# 	"""
+# 	found_up_stream = False
+# 	found_down_stream = False
+# 	similar_path = {'up_stream':-1, 'down_stream':-1}
+# 	new_first_node = amr_path_info['nodes'][0]+amr_path_info['orientations'][0]
+# 	new_last_node = amr_path_info['nodes'][-1]+amr_path_info['orientations'][-1]
+# 	new_start_pos = amr_path_info['start_pos']
+# 	new_end_pos = amr_path_info['end_pos']
+# 	for i, path_info in enumerate(amr_paths_info):
+# 		start_pos = path_info['start_pos']
+# 		end_pos = path_info['end_pos']
+# 		# if len(amr_path_info['nodes'])!=len(path_info) or (start_pos!=new_start_pos and end_pos!=new_end_pos):
+# 		# 	continue
+# 		if start_pos!=new_start_pos and end_pos!=new_end_pos:
+# 			continue
+# 		first_node = path_info['nodes'][0]+path_info['orientations'][0]
+# 		last_node = path_info['nodes'][-1]+path_info['orientations'][-1]
+# 		if len(path_info)==1 and len(amr_path_info)==1 and new_first_node==first_node:
+# 			logging.error('there shouldnt be two separate amr paths with the same single node!')
+# 			import pdb; pdb.set_trace()
+# 		if new_first_node==first_node and new_start_pos==start_pos and\
+# 			new_last_node==last_node and new_end_pos==end_pos:
+# 			return {'up_stream':i, 'down_stream':i}
+#
+# 	for i, path_info in enumerate(amr_paths_info):
+# 		start_pos = path_info['start_pos']
+# 		end_pos = path_info['end_pos']
+# 		if start_pos!=new_start_pos and end_pos!=new_end_pos:
+# 			continue
+# 		first_node = path_info['nodes'][0]+path_info['orientations'][0]
+# 		last_node = path_info['nodes'][-1]+path_info['orientations'][-1]
+# 		if not found_up_stream and new_first_node==first_node and new_start_pos==start_pos:
+# 			similar_path['up_stream']=i
+# 			found_up_stream = True
+# 		elif not found_down_stream and new_last_node==last_node and new_end_pos==end_pos:
+# 			similar_path['down_stream']=i
+# 			found_dwon_stream = True
+# 		if found_up_stream and found_down_stream:
+# 			return similar_path
+#
+# 	return similar_path
+
+def check_if_similar_ng_extractions_exist(amr_path_info, amr_paths_info, assembler= Assembler_name.metaspades):
 	"""
 	To check the new AMR path found by alignment with the ones already processed!
-	If there is a similar AMR pathin amr_paths_info, we don't need to process
+	If there is a similar AMR path in amr_paths_info, we don't need to process
 	amr_path_info!
 	Parameters:
 		amr_path_info: the new AMR path
@@ -1512,11 +1714,13 @@ def check_if_similar_ng_extractions_exist(amr_path_info, amr_paths_info):
 	new_last_node = amr_path_info['nodes'][-1]+amr_path_info['orientations'][-1]
 	new_start_pos = amr_path_info['start_pos']
 	new_end_pos = amr_path_info['end_pos']
+	#first look for a path whose both first and last nodes are the same as the new path
+	# If not found a path with similar first node and similar last node
+	# then look for a path that its first_node=new_first node
+	# and a path that its last_node=new_last_node
 	for i, path_info in enumerate(amr_paths_info):
 		start_pos = path_info['start_pos']
 		end_pos = path_info['end_pos']
-		# if len(amr_path_info['nodes'])!=len(path_info) or (start_pos!=new_start_pos and end_pos!=new_end_pos):
-		# 	continue
 		if start_pos!=new_start_pos and end_pos!=new_end_pos:
 			continue
 		first_node = path_info['nodes'][0]+path_info['orientations'][0]
@@ -1527,22 +1731,40 @@ def check_if_similar_ng_extractions_exist(amr_path_info, amr_paths_info):
 		if new_first_node==first_node and new_start_pos==start_pos and\
 			new_last_node==last_node and new_end_pos==end_pos:
 			return {'up_stream':i, 'down_stream':i}
-
-	for i, path_info in enumerate(amr_paths_info):
-		start_pos = path_info['start_pos']
-		end_pos = path_info['end_pos']
-		if start_pos!=new_start_pos and end_pos!=new_end_pos:
-			continue
-		first_node = path_info['nodes'][0]+path_info['orientations'][0]
-		last_node = path_info['nodes'][-1]+path_info['orientations'][-1]
 		if not found_up_stream and new_first_node==first_node and new_start_pos==start_pos:
 			similar_path['up_stream']=i
 			found_up_stream = True
-		elif not found_down_stream and new_last_node==last_node and new_end_pos==end_pos:
+		if not found_down_stream and new_last_node==last_node and new_end_pos==end_pos:
 			similar_path['down_stream']=i
 			found_dwon_stream = True
-		if found_up_stream and found_down_stream:
-			return similar_path
+
+	if found_up_stream and found_down_stream:
+		return similar_path
+	#there are some cases that a path starts with one more node than another path
+	# E.g. P1 = {a1, a2} P2 = {a0, a1, a2}
+	#Or a path ends at one more node than another path
+	# E.g., P1= {a1, a2} P2 = {a1, a2, a3}
+	new_second_node = ''
+	new_second_last_node = ''
+	if len(amr_path_info['nodes'])>2:
+		new_second_node = amr_path_info['nodes'][1]+amr_path_info['orientations'][1]
+		new_second_last_node = amr_path_info['nodes'][-2]+amr_path_info['orientations'][-2]
+		for i, path_info in enumerate(amr_paths_info):
+			first_node = path_info['nodes'][0]+path_info['orientations'][0]
+			last_node = path_info['nodes'][-1]+path_info['orientations'][-1]
+			second_node = ''
+			second_last_node = ''
+			if len(path_info['nodes'])>2:
+				second_node = path_info['nodes'][1]+path_info['orientations'][1]
+				second_last_node = path_info['nodes'][-2]+path_info['orientations'][-2]
+			if not found_up_stream and (new_first_node==second_node or new_second_node==first_node):
+				similar_path['up_stream']=i
+				found_up_stream = True
+			if not found_down_stream and (new_last_node==second_last_node or new_second_last_node==last_node):
+				similar_path['down_stream']=i
+				found_dwon_stream = True
+			if found_up_stream and found_down_stream:
+				return similar_path
 
 	return similar_path
 
@@ -1643,10 +1865,19 @@ def combine_nodes_orientations_metacherchant(node_list, orientations):
 
 def combine_pre_post_metacherchant(pre_sequence_list, pre_path_list, post_sequence_list,
 									post_path_list, seq_file, amr_seq, node_orient_list,
-									compare_dir):
+									output_dir, output_name):
 	"""
 	To merge pre-seq and post-seq extracted from Metacherchant results
 	"""
+	#create a temporaty directory
+	compare_dir = os.path.join(output_dir,'temp_comparison_'+output_name)
+	if not os.path.exists(compare_dir):
+		try:
+			os.makedirs(compare_dir)
+		except OSError as exc:
+			if exc.errno != errno.EEXIST:
+				raise
+			pass
 	sequence_list = []
 	path_list = []
 	counter = 0
@@ -1663,10 +1894,19 @@ def combine_pre_post_metacherchant(pre_sequence_list, pre_path_list, post_sequen
 				path_list[index] = path
 			counter+=1
 	write_sequences_to_file(sequence_list, path_list, seq_file)
+	# delete the temp folder
+	if os.path.exists(compare_dir):
+		try:
+			shutil.rmtree(compare_dir)
+		except OSError as e:
+			logging.error("Error: %s - %s." % (e.filename, e.strerror))
+
+	return
 
 def ng_seq_extraction_metacherchant(gfa_file, length, output_dir,path_thr,
 									remained_len_thr, output_name,max_kmer_size,
-									seq_file, assembler = Assembler_name.metacherchant,
+									seq_file, time_out_counter,
+									assembler = Assembler_name.metacherchant,
 									threshold = 90, amr_file = ''):
 	"""
 	The core function to extract the neighborhood of AMRs for metacherchant
@@ -1706,15 +1946,6 @@ def ng_seq_extraction_metacherchant(gfa_file, length, output_dir,path_thr,
 	end_pos = len(str(last_segment.sequence))
 
 	logging.debug('last_segment = '+last_segment.name+' start_pos = '+str(start_pos)+' end_pos= '+str(end_pos))
-	#create a temporaty directory
-	compare_dir = 'temp_comparison_'+output_name
-	if not os.path.exists(compare_dir):
-		try:
-			os.makedirs(compare_dir)
-		except OSError as exc:
-			if exc.errno != errno.EEXIST:
-				raise
-			pass
 	amr_seq = retrieve_AMR(amr_file)
 
 	#Process with the orientation found based on the alignment and ordering
@@ -1725,16 +1956,18 @@ def ng_seq_extraction_metacherchant(gfa_file, length, output_dir,path_thr,
 	pre_sequence_list, pre_path_list, pre_path_length_list =\
 	 							extract_pre_sequence(ordered_path_nodes[0],
 								orientations[0], node_list, length, start_pos,
-								compare_dir, remained_len_thr, path_thr)
+								output_dir, output_name, remained_len_thr,
+								path_thr, time_out_counter)
 	#Find the sequence after the AMR gene
 	logging.debug('Running extract_post_sequence '+output_name+' ...')
 	post_sequence_list, post_path_list, post_path_length_list =\
 								extract_post_sequence(last_segment,
 								orientations[-1], node_list, length, end_pos,
-								compare_dir, remained_len_thr, path_thr)
+								output_dir, output_name, remained_len_thr,
+								path_thr, time_out_counter)
 	combine_pre_post_metacherchant(pre_sequence_list, pre_path_list, post_sequence_list,
 										post_path_list, seq_file, amr_seq, node_orient_list,
-										compare_dir)
+										output_dir, output_name)
 
 	#Process with the reverse of the orientation found based on the alignment and ordering
 	orientations[0]=reverse_sign(orientations[0])
@@ -1748,24 +1981,20 @@ def ng_seq_extraction_metacherchant(gfa_file, length, output_dir,path_thr,
 	pre_sequence_list, pre_path_list, pre_path_length_list =\
 	 							extract_pre_sequence(ordered_path_nodes[0],
 								orientations[0], node_list, length, start_pos,
-								compare_dir, remained_len_thr, path_thr)
+								output_dir, output_name, remained_len_thr,
+								path_thr, time_out_counter)
 	#Find the sequence after the AMR gene
 	logging.debug('Running extract_post_sequence '+output_name+' ...')
 	post_sequence_list, post_path_list, post_path_length_list =\
 								extract_post_sequence(last_segment,
 								orientations[-1], node_list, length, end_pos,
-								compare_dir, remained_len_thr, path_thr)
+								output_dir, output_name, remained_len_thr,
+								path_thr, time_out_counter)
 	combine_pre_post_metacherchant(pre_sequence_list, pre_path_list, post_sequence_list,
 									post_path_list, seq_file, amr_seq, node_orient_list,
-									compare_dir)
+									output_dir, output_name)
 	logging.info("NOTE: The list of neighborhood sequences (extracted from assembly graph)\
 	 		has been stroed in " + seq_file)
-	# delete the temp folder
-	if os.path.exists(compare_dir):
-		try:
-			shutil.rmtree(compare_dir)
-		except OSError as e:
-			logging.error("Error: %s - %s." % (e.filename, e.strerror))
 
 	return seq_file
 
@@ -1775,7 +2004,7 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 									#output_name = 'ng_sequences',
 									path_node_threshold = 10 ,
 									path_seq_len_percent_threshod = 90,
-									max_kmer_size = 55,
+									max_kmer_size = 55, time_out_counter = -1,
 									assembler = Assembler_name.metaspades,
 									amr_seq_align_info = ''):
 	"""
@@ -1829,12 +2058,13 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 												os.path.join(output_dir, 'alignment_files'),
 												bandage, threshold, output_name, '')
 		if not found:
-			if assembler==Assembler_name.metacherchant:
+			if assembler.name == Assembler_name.metacherchant.name:
 				logging.error("no alignment was found for "+amr_file)
 				return ng_seq_extraction_metacherchant(gfa_file, length, output_dir,
 												path_node_threshold,remained_len_thr,
 												output_name,max_kmer_size, seq_file,
-												assembler, threshold, amr_file), ''
+												time_out_counter, assembler,
+												threshold, amr_file), ''
 			else:
 				logging.error("no alignment was found for "+amr_file)
 				#import pdb; pdb.set_trace()
@@ -1873,7 +2103,8 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 			sequence_list, path_list, path_info_list, seq_info =\
 								extract_neighborhood_sequence(gfa_file, length,
 								amr_path_info, remained_len_thr, path_node_threshold,
-								output_name, max_kmer_size, seq_info, assembler)
+								output_name, max_kmer_size, seq_info, output_dir,
+								time_out_counter, assembler)
 		elif similar_path['up_stream']>-1 and similar_path['down_stream']>-1:
 			#we have extracted both its upstream and downstream but in different paths
 			u_id = similar_path['up_stream']
@@ -1887,7 +2118,8 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 			sequence_list, path_list, path_info_list, seq_info =\
 								extract_neighborhood_sequence(gfa_file, length,
 								amr_path_info, remained_len_thr, path_node_threshold,
-								output_name, max_kmer_size, seq_info, assembler)
+								output_name, max_kmer_size, seq_info, output_dir,
+								time_out_counter, assembler)
 		elif similar_path['up_stream']>-1:
 			#we need to extract its downstream
 			u_id = similar_path['up_stream']
@@ -1897,7 +2129,8 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 			sequence_list, path_list, path_info_list, seq_info =\
 								extract_neighborhood_sequence(gfa_file, length,
 								amr_path_info, remained_len_thr, path_node_threshold,
-								output_name, max_kmer_size, seq_info, assembler)
+								output_name, max_kmer_size, seq_info, output_dir,
+								time_out_counter, assembler)
 
 		elif similar_path['down_stream']>-1:
 			#we need to extract its upstream
@@ -1908,7 +2141,8 @@ def neighborhood_sequence_extraction(gfa_file, length, output_dir,
 			sequence_list, path_list, path_info_list, seq_info =\
 								extract_neighborhood_sequence(gfa_file, length,
 								amr_path_info, remained_len_thr, path_node_threshold,
-								output_name, max_kmer_size, seq_info, assembler)
+								output_name, max_kmer_size, seq_info, output_dir,
+								time_out_counter, assembler)
 		if not sequence_list:
 			continue
 		seq_info_list.append(seq_info)
