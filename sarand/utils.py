@@ -819,6 +819,35 @@ def unnamed_genes_are_siginificantly_similar(gene_info1, gene_info2, output_dir,
 	seq2 = gene_info2['seq_value'][start2-1:end2-1]
 	return compare_two_sequences(seq1, seq2, output_dir, threshold)
 
+def first_fully_covered_by_second(first_seq, second_seq, out_dir,
+					in_reversed_order = False, threshold = 90):
+	"""
+	first_seq: gene1--gene2 and second_seq: gene1--gene2   		True
+	first_seq: gene1--gene2 and second_seq: gene1--gene3   		False
+	first_seq: gene1        and second_seq: gene1--gene3   		True
+	"""
+	if len(first_seq) <= len(second_seq):
+		identical_rows = 0
+		if not in_reversed_order:
+			for i, gene_info1 in enumerate(first_seq):
+				gene_info2 = second_seq[i]
+				if (gene_info1['gene']==gene_info2['gene'] and gene_info1['gene']!='') or\
+					(gene_info1['gene']==gene_info2['gene'] and\
+					unnamed_genes_are_siginificantly_similar(gene_info1, gene_info2, out_dir, threshold) ):
+					identical_rows+=1
+			if identical_rows == len(first_seq):
+				return True
+		else:
+			for i, gene_info1 in enumerate(reversed(first_seq)):
+				gene_info2 = list(reversed(second_seq))[i]
+				if (gene_info1['gene']==gene_info2['gene'] and gene_info1['gene']!='') or\
+					(gene_info1['gene']==gene_info2['gene'] and\
+					unnamed_genes_are_siginificantly_similar(gene_info1, gene_info2, out_dir, threshold) ):
+					identical_rows+=1
+			if identical_rows == len(first_seq):
+				return True
+	return False
+
 def seqs_annotation_are_identical(seq_info1, seq_info2, out_dir, threshold = 90):
 	"""
 	"""

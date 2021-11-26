@@ -2165,7 +2165,7 @@ def neighborhood_graph_extraction(gfa_file, distance, output_dir,
 	"""
 	"""
 	amr_file, paths_info = amr_seq_align_info
-	logging.debug('amr_file = '+amr_file+'\t align_file = '+align_file)
+	logging.debug('amr_file = '+amr_file)
 	output_name = seq_name_prefix +os.path.splitext(os.path.basename(amr_file))[0]
 	if not paths_info:
 		if not os.path.exists(os.path.join(output_dir, 'alignment_files')):

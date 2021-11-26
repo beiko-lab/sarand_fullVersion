@@ -38,7 +38,8 @@ from sarand.utils import extract_files, retrieve_AMR, read_ref_annotations_from_
 		extract_up_down_from_csv_file, seqs_annotation_are_identical,\
 		similar_seq_annotation_already_exist, split_up_down_info, annotate_sequence,\
 		retreive_original_amr_name, extract_name_from_file_name, initialize_logger,\
-		restricted_amr_name_from_modified_name, str2bool, validate_print_parameters_tools
+		restricted_amr_name_from_modified_name, str2bool, validate_print_parameters_tools,\
+		first_fully_covered_by_second
 from sarand.extract_neighborhood import extract_amr_neighborhood_in_ref_genome
 from sarand.find_amrs_in_sample import find_all_amrs_and_neighborhood
 
@@ -178,12 +179,19 @@ def evaluate_sequences_up_down(amr_name, summary_file, up_info_list, down_info_l
 	unique_tp = 0
 	for ref_info in ref_up_info_list:
 		for seq_info in up_info_list:
-			if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
+			#if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
+			#if all ref genes are available in the extracted one in the same order
+			# and it doesn't matter if extracted one has more genes!
+			if first_fully_covered_by_second(ref_info, seq_info, out_dir,
+										in_reversed_order = True):
 				unique_tp+=1
 				break
 	for ref_info in ref_down_info_list:
 		for seq_info in down_info_list:
-			if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
+			#if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
+			#if all ref genes are available in the extracted one in the same order
+			# and it doesn't matter if extracted one has more genes!
+			if first_fully_covered_by_second(ref_info, seq_info, out_dir):
 				unique_tp+=1
 				break
 	sensitivity = 1 if ref_len==0 else round(float(unique_tp)/ref_len, 2)

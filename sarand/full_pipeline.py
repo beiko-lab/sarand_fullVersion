@@ -61,7 +61,8 @@ from sarand.utils import initialize_logger, check_reads, str2bool, print_params,
 			read_info_from_overlap_ref_files, extract_unique_align_files,\
 			read_path_info_from_align_file, concatenate_files, read_path_info_from_align_file_with_multiple_amrs,\
 			extract_path_info_for_amrs, compare_two_sequences, split_up_down_seq,\
-			delete_lines_started_with, validate_task_values, validate_print_parameters_tools
+			delete_lines_started_with, validate_task_values, validate_print_parameters_tools,\
+			first_fully_covered_by_second
 from sarand.find_amrs_in_sample import find_annotate_amrs_in_ref
 
 ASSEMBLY_FILE = 'assembly_graph_with_scaffolds.gfa'
@@ -596,15 +597,24 @@ def evaluate_sequences_up_down_based_on_coverage(amr_name, coverage_annotation, 
 				down_info_list.append(down_info)
 
 	#find the number of unique true-positives, all false positives, total found cases, all unique true cases
+	# if amr_name == 'TEM-104':
+	# 	import pdb; pdb.set_trace()
 	unique_tp = 0
 	for ref_info in ref_up_info_list:
 		for seq_info in up_info_list:
-			if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
+			#if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
+			#if all ref genes are available in the extracted one in the same order
+			# and it doesn't matter if extracted one has more genes!
+			if first_fully_covered_by_second(ref_info, seq_info, out_dir,
+												in_reversed_order = True):
 				unique_tp+=1
 				break
 	for ref_info in ref_down_info_list:
 		for seq_info in down_info_list:
-			if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
+			#if seqs_annotation_are_identical(ref_info, seq_info, out_dir):
+			#if all ref genes are available in the extracted one in the same order
+			# and it doesn't matter if extracted one has more genes!
+			if first_fully_covered_by_second(ref_info, seq_info, out_dir):
 				unique_tp+=1
 				break
 	sensitivity = 1 if ref_len==0 else round(float(unique_tp)/ref_len, 2)

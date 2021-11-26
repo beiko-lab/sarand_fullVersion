@@ -67,6 +67,8 @@ def extract_annotation_from_csv(input_csv_file):
 		myreader = DictReader(myfile)
 		old_seq = ''
 		has_row = False
+		#temp
+		#old_len = 0
 		for row in myreader:
 			has_row = True
 			if row['coverage']!='':
@@ -79,12 +81,18 @@ def extract_annotation_from_csv(input_csv_file):
 			if cur_seq!=old_seq:
 				if (seq_info):
 					seq_info_list.append(seq_info)
+					#temp
+					#seq_length_list.append(old_len)
 				seq_info = []
 				old_seq = cur_seq
 				title_list.append(cur_seq)
 				seq_length_list.append(int(row['seq_length']))
+			#temp
+			#old_len = int(row['end_pos'])
 			seq_info.append(gene_info)
 		seq_info_list.append(seq_info)
+		#temp
+		#seq_length_list.append(old_len)
 	if not has_row:
 		logging.error("there is no sequence to visualize!")
 		return [], [], []
