@@ -51,6 +51,7 @@ Three modules are available under Sarand that can be run separately:
 - full_pipeline: It provides the complete pipeline to extract AMR neighborhood from the assembly graph and annotate it.
 - find_ref_amrs: This module can be used to find all AMRs available in the reference genomes (fasta files) and extract their neighborhood sequences and annotate them. It is used as the ground truth when reference genomes are available.
 - find_contig_amrs: This module is used to find the neighborhood of AMRs in a contig file, compare them with that of the reference genomes (if available) and calculate the sensitivity and precision.
+
 Each of these modules can be run by
 
       sarand <module_name> -C <config_file>
