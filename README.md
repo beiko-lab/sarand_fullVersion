@@ -63,7 +63,7 @@ Please note that the config file is a mandatory parameter. However, you don't ne
 
 Make sure to update the following parameter in your config file:
 - main_dir: the address of the main directory to read inputs and store results.
-- PROKKA_COMMAND_PREFIX: Only ih you use docker to run Prokka, set this parameter with the command from docker (e.g., `docker pull staphb/prokka:latest`))
+- PROKKA_COMMAND_PREFIX: Only in you use docker to run Prokka, set this parameter with the command from docker (e.g., `docker pull staphb/prokka:latest`))
 
 Note: you might also need to update the following parameters in your config file to provide the path to Bandage, ART and SPAdes, in case they have not been installed via conda.
 - BANDAGE_PATH (the path to access bandage executable file)
